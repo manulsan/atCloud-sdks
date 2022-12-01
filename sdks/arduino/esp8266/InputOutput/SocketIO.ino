@@ -1,91 +1,74 @@
 #include "defs.h"
+#define _WEBSOCKETS_LOGLEVEL_ 0   // 0-4
+#define _SIO_PATH_ "/api/dev/io/" // do not change
 
-#define DATA_EVENT "dev-data"
-#define STATUS_EVENT "dev-status"
-
-#define _WEBSOCKETS_LOGLEVEL_ 0 // 0-4
-#define SIO_PATH "/api/dev/io/" // do not change
-
-bool _bSocketConnected = false;
+bool _bSocketIOConnected = false;
 bool _bInitialConnection = true;
-bool _bPublishRequired = false;
-uint32_t _dPublishingInterval = 0;
-uint32_t _tsLastPublishing = 0;
-
-void initSocketIO(char *szDeviceNo, uint32_t dInterval)
+static void (*cbSocketDataReceived)(String jsonStr) = NULL;
+static void (*cbSocketConnection)(bool status) = NULL;
+void initSocketIO(char *szDeviceNo,void (*ptr)(String jsonStr), void (*ptr2)(bool status))
 {
-    _ntpClient.begin(); // begin NTP client for time sync
+    _ntpClient.begin();
     _socketIO.onEvent(onEvent);
     _socketIO.setReconnectInterval(10000);
 
-    _dPublishingInterval = dInterval;
-
-    char szBuf[128];
-    sprintf(szBuf, "%s?sn=%s", SIO_PATH, szDeviceNo);
+    char szBuf[256];
+    sprintf(szBuf, "%s?sn=%s", _SIO_PATH_, szDeviceNo);
     _socketIO.begin(SERVER_URL, SERVER_PORT, szBuf);
-}
 
+    cbSocketDataReceived = ptr;
+    cbSocketConnection = ptr2;
+}
 /*----------------------------------------------------------------------
 cmd from user via platform
 example  : ["app-cmd",{"cmd":"output","content":{"field":3,"value":0}}]
 ----------------------------------------------------------------------*/
-void processEvent(String jsonStr)
-{
-  Serial.println(jsonStr);
+// void processEvent(String jsonStr)
+// {
+//     if(cbSocketDataReceived) (*cbSocketDataReceived)(jsonStr);
+//     return;
+//     const int capacity = JSON_ARRAY_SIZE(3) + 4 * JSON_OBJECT_SIZE(4) + 10 * JSON_OBJECT_SIZE(1);
+//     StaticJsonDocument<capacity> doc;
+//     DeserializationError err = deserializeJson(doc, jsonStr);
+//     if (err)
+//     {
+//         debug_out2("deserializeJson() returned ", (const char *)err.f_str());
+//         return;
+//     }
+//     pubStatus((char *)jsonStr.c_str()); // comment or not
 
-//   int idx= jsonStr.indexOf("app-cmd");
-//   if(idx == -1) {
- 
-//     debug_out2(__FUNCTION__, "-1");  
-//      return;  
-//   }
-//   else debug_out2(__FUNCTION__, "1");  
-
-// Serial.println(idx);
-
-    //const int capacity = JSON_ARRAY_SIZE(2) + 2 * JSON_OBJECT_SIZE(3) + 4 * JSON_OBJECT_SIZE(1);
-    const int capacity = JSON_ARRAY_SIZE(3) + 4 * JSON_OBJECT_SIZE(4) + 10 * JSON_OBJECT_SIZE(1);
-    StaticJsonDocument<capacity> doc;
-    DeserializationError err = deserializeJson(doc, jsonStr);
-    if (err)
-    {
-        debug_out2("deserializeJson() returned ", (const char *)err.f_str());
-        return;
-    }
-    pubStatus((char *) jsonStr.c_str());  // comment or not
-
-    auto cmd = doc["cmd"].as<const char *>();
-    if (strcmp(cmd, "output") == 0)
-    {      
-#ifdef _IO_CONTROL_
-        auto f = doc["content"]["field"].as<int>();
-        auto v = doc["content"]["value"].as<int>();
-        setOutput(f, v);
-        setPublish(true);
-#endif
-    }
-    else if (strcmp(cmd, "output-all") == 0)
-    {     
-#ifdef _IO_CONTROL_
-        auto v = doc["content"]["value"].as<int>();
-        setOutputAll(v);
-        setPublish(true);
-#endif
-    }
-    else if (strcmp(cmd, "reboot") == 0)
-    {        
-        _socketIO.send(sIOtype_DISCONNECT, "");
-        reboot();
-    }
-    else if (strcmp(cmd, "sync") == 0){      
-      setPublish(true);
-    }        
-    else if (strcmp(cmd, "chat") == 0)
-    {
-      debug_out2("do chat", "");
-    }
-        
-}
+//     auto cmd = doc["cmd"].as<const char *>();
+//     if (strcmp(cmd, "output") == 0)
+//     {
+// #ifdef _IO_CONTROL_
+//         auto f = doc["content"]["field"].as<int>();
+//         auto v = doc["content"]["value"].as<int>();
+//         setOutput(f, v);
+//         setPublish(true);
+// #endif
+//     }
+//     else if (strcmp(cmd, "output-all") == 0)
+//     {
+// #ifdef _IO_CONTROL_
+//         auto v = doc["content"]["value"].as<int>();
+//         setOutputAll(v);
+//         setPublish(true);
+// #endif
+//     }
+//     else if (strcmp(cmd, "reboot") == 0)
+//     {
+//         _socketIO.send(sIOtype_DISCONNECT, "");
+//         reboot();
+//     }
+//     else if (strcmp(cmd, "sync") == 0)
+//     {
+//         setPublish(true);
+//     }
+//     else if (strcmp(cmd, "chat") == 0)
+//     {
+//         debug_out2("do chat", "");
+//     }
+// }
 //-------------------------------------------------------------
 void onEvent(const socketIOmessageType_t &type, uint8_t *payload, const size_t &length)
 {
@@ -93,7 +76,8 @@ void onEvent(const socketIOmessageType_t &type, uint8_t *payload, const size_t &
     {
     case sIOtype_DISCONNECT:
         debug_out2("[IOc]", "Disconnected");
-        _bSocketConnected = false;
+        _bSocketIOConnected = false;
+        (*cbSocketConnection)(0);
         break;
     case sIOtype_CONNECT:
         debug_out2("[IOc] Connected to url: ", (const char *)payload);
@@ -101,17 +85,21 @@ void onEvent(const socketIOmessageType_t &type, uint8_t *payload, const size_t &
         if (_bInitialConnection)
         {
             _bInitialConnection = false;
-             pubStatus("System Ready");
+            // pubStatus("System Ready");
         }
-        _bSocketConnected = true;
+        (*cbSocketConnection)(1);
+        _bSocketIOConnected = true;
         break;
     case sIOtype_EVENT:
         debug_out2("[IOc] Got event: ", (char *)payload);
         {
             // payload like : ["app-cmd",{"cmd":"sync","content":""}]
-            if(payload[2] != 'a') return; // only for app-cmd
+            if (payload[2] != 'a')
+                return; // only for app-cmd
             String text = ((const char *)&payload[0]);
-            processEvent(text.substring(text.indexOf('{'), text.length() - 1));
+            // processEvent(text.substring(text.indexOf('{'), text.length() - 1));
+            if (cbSocketDataReceived)
+                (*cbSocketDataReceived)(text.substring(text.indexOf('{'), text.length() - 1));
         }
         break;
     case sIOtype_ACK:
@@ -138,7 +126,7 @@ void onEvent(const socketIOmessageType_t &type, uint8_t *payload, const size_t &
 }
 void publish(char *szEventName, char *szContent)
 {
-    _bPublishRequired = false;
+    //_bPublishRequired = false;
 
     DynamicJsonDocument doc(1024);
     JsonArray root = doc.to<JsonArray>();
@@ -146,13 +134,14 @@ void publish(char *szEventName, char *szContent)
 
     JsonObject jsonObj = root.createNestedObject();
 
-    if (szContent[0] == '[') // data begins with '[' regarding as array and should be serialized
+    if (szContent[0] == '[') // data begins with '[' 
         jsonObj["content"] = serialized(szContent);
     else
         jsonObj["content"] = szContent;
 
-    _ntpClient.update();                                               // update time value
-    jsonObj["createdAt"] = (uint64_t)_ntpClient.getEpochTime() * 1000; // set seconds to millisecond value, require 64bit
+    _ntpClient.update(); // update time value
+    // set seconds to millisecond value, require 64bit
+    jsonObj["createdAt"] = (uint64_t)_ntpClient.getEpochTime() * 1000; 
 
     String output;
     serializeJson(doc, output); // JSON to String (serializion)
@@ -160,44 +149,14 @@ void publish(char *szEventName, char *szContent)
 
     debug_out2("Pub: ", output.c_str());
 }
-
 //-------------------------------------------------------------
-// ex> szData="[0,0,1,1]" , array expression
-void pubData(char *szData)
+void stopSocketIO()
 {
-    publish(DATA_EVENT, szData);
+    _socketIO.send(sIOtype_DISCONNECT, "");
 }
 
-//-------------------------------------------------------------
-void pubStatus(char *szData)
-{
-    publish(STATUS_EVENT, szData);
-}
-
-//-------------------------------------------------------------
-void setPublish(bool bFlag)
-{
-    _bPublishRequired = bFlag;
-}
-//-------------------------------------------------------------
-void setTimedPublish(uint32_t now)
-{
-    if (_dPublishingInterval && ((now - _tsLastPublishing) > _dPublishingInterval))
-    {
-        _bPublishRequired = true;
-        _tsLastPublishing = now;
-    }
-}
 //-------------------------------------------------------------
 void socketIOLoop()
 {
     _socketIO.loop();
-    setTimedPublish(millis());
-
-    if (_bPublishRequired)
-    {
-        char szBuf[256] = {};
-        getDeviceData(szBuf);
-        pubData(szBuf);
-    }
 }
