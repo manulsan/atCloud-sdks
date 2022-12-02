@@ -25,8 +25,16 @@ typedef struct _tag
   uint8_t state;
 } Port;
 
+
 #define SERVER_URL "damosys.com"
+
+#define USE_SSL    true
+#ifdef USE_SSL
+#define SERVER_PORT 9000    // to nginX https
+#else
 #define SERVER_PORT 9011
+#endif
+
 
 #define DATA_EVENT 0
 #define STATUS_EVENT 1

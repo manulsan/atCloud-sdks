@@ -15,6 +15,7 @@ Files:
    defs.h :  _IO_CONTROL_, DEBUG can be modified.
 
 Versio : 1.0
+Updats : 1.1 / socketIO over https
 Changes :  Input/Output port map is merged again
 ***********************************************************************************/
 #include "defs.h"

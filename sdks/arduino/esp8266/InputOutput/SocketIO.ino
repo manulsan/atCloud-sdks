@@ -14,8 +14,12 @@ void initSocketIO(char *szDeviceNo, void (*ptr)(String jsonStr), void (*ptr2)(bo
 
     char szBuf[256];
     sprintf(szBuf, "%s?sn=%s", _SIO_PATH_, szDeviceNo);
-    _socketIO.begin(SERVER_URL, SERVER_PORT, szBuf);
 
+#ifdef USE_SSL
+        _socketIO.beginSSL(SERVER_URL, SERVER_PORT, szBuf);        
+#else
+        _socketIO.begin(SERVER_URL, SERVER_PORT, szBuf);
+#endif
     cbSocketDataReceived = ptr;
     cbSocketConnection = ptr2;
 }
@@ -74,8 +78,7 @@ void onEvent(const socketIOmessageType_t &type, uint8_t *payload, const size_t &
         break;
     }
 }
-// #define DATA_EVENT "dev-data"
-// #define STATUS_EVENT "dev-status"
+//-------------------------------------------------------------
 uint8_t publish(uint8_t eventType, char *szContent)
 {
     if (!_bSocketIOConnected)
@@ -88,7 +91,6 @@ uint8_t publish(uint8_t eventType, char *szContent)
         debug_out2(__FUNCTION__, "err: invalid eventType");
         return 2;
     }
-
     DynamicJsonDocument doc(1024);
     JsonArray root = doc.to<JsonArray>();
     root.add(eventType == DATA_EVENT ? "dev-data" : "dev-status");
