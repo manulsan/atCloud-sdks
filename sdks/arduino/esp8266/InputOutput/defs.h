@@ -13,23 +13,23 @@
 #include <SocketIOclient_Generic.h>
 #include <Hash.h>
 
-#define SERVER_URL "192.168.123.232"
-#define SERVER_PORT 9011
-
 WiFiUDP ntpUDP;
 ESP8266WiFiMulti WiFiMulti;
 NTPClient _ntpClient(ntpUDP, "asia.pool.ntp.org", 0, 600000); // https://lastminuteengineers.com/esp8266-ntp-server-date-time-tutorial/
 
 SocketIOclient _socketIO;
-#define DATA_EVENT "dev-data"
-#define STATUS_EVENT "dev-status"
-
 typedef struct _tag
 {
   uint8_t pin;
   uint8_t type;
   uint8_t state;
 } Port;
+
+#define SERVER_URL "damosys.com"
+#define SERVER_PORT 9011
+
+#define DATA_EVENT 0
+#define STATUS_EVENT 1
 
 #define DEBUG
 #ifdef DEBUG

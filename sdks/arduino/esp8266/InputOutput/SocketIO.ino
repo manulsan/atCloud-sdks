@@ -6,7 +6,7 @@ bool _bSocketIOConnected = false;
 bool _bInitialConnection = true;
 static void (*cbSocketDataReceived)(String jsonStr) = NULL;
 static void (*cbSocketConnection)(bool status) = NULL;
-void initSocketIO(char *szDeviceNo,void (*ptr)(String jsonStr), void (*ptr2)(bool status))
+void initSocketIO(char *szDeviceNo, void (*ptr)(String jsonStr), void (*ptr2)(bool status))
 {
     _ntpClient.begin();
     _socketIO.onEvent(onEvent);
@@ -19,56 +19,6 @@ void initSocketIO(char *szDeviceNo,void (*ptr)(String jsonStr), void (*ptr2)(boo
     cbSocketDataReceived = ptr;
     cbSocketConnection = ptr2;
 }
-/*----------------------------------------------------------------------
-cmd from user via platform
-example  : ["app-cmd",{"cmd":"output","content":{"field":3,"value":0}}]
-----------------------------------------------------------------------*/
-// void processEvent(String jsonStr)
-// {
-//     if(cbSocketDataReceived) (*cbSocketDataReceived)(jsonStr);
-//     return;
-//     const int capacity = JSON_ARRAY_SIZE(3) + 4 * JSON_OBJECT_SIZE(4) + 10 * JSON_OBJECT_SIZE(1);
-//     StaticJsonDocument<capacity> doc;
-//     DeserializationError err = deserializeJson(doc, jsonStr);
-//     if (err)
-//     {
-//         debug_out2("deserializeJson() returned ", (const char *)err.f_str());
-//         return;
-//     }
-//     pubStatus((char *)jsonStr.c_str()); // comment or not
-
-//     auto cmd = doc["cmd"].as<const char *>();
-//     if (strcmp(cmd, "output") == 0)
-//     {
-// #ifdef _IO_CONTROL_
-//         auto f = doc["content"]["field"].as<int>();
-//         auto v = doc["content"]["value"].as<int>();
-//         setOutput(f, v);
-//         setPublish(true);
-// #endif
-//     }
-//     else if (strcmp(cmd, "output-all") == 0)
-//     {
-// #ifdef _IO_CONTROL_
-//         auto v = doc["content"]["value"].as<int>();
-//         setOutputAll(v);
-//         setPublish(true);
-// #endif
-//     }
-//     else if (strcmp(cmd, "reboot") == 0)
-//     {
-//         _socketIO.send(sIOtype_DISCONNECT, "");
-//         reboot();
-//     }
-//     else if (strcmp(cmd, "sync") == 0)
-//     {
-//         setPublish(true);
-//     }
-//     else if (strcmp(cmd, "chat") == 0)
-//     {
-//         debug_out2("do chat", "");
-//     }
-// }
 //-------------------------------------------------------------
 void onEvent(const socketIOmessageType_t &type, uint8_t *payload, const size_t &length)
 {
@@ -124,30 +74,36 @@ void onEvent(const socketIOmessageType_t &type, uint8_t *payload, const size_t &
         break;
     }
 }
-void publish(char *szEventName, char *szContent)
+// #define DATA_EVENT "dev-data"
+// #define STATUS_EVENT "dev-status"
+uint8_t publish(uint8_t eventType, char *szContent)
 {
-    //_bPublishRequired = false;
+    if (!_bSocketIOConnected)
+    {
+        debug_out2(__FUNCTION__, "err: socket is not connected");
+        return 1;
+    }
+    if (eventType != DATA_EVENT && eventType != STATUS_EVENT)
+    {
+        debug_out2(__FUNCTION__, "err: invalid eventType");
+        return 2;
+    }
 
     DynamicJsonDocument doc(1024);
     JsonArray root = doc.to<JsonArray>();
-    root.add(szEventName);
+    root.add(eventType == DATA_EVENT ? "dev-data" : "dev-status");
 
     JsonObject jsonObj = root.createNestedObject();
-
-    if (szContent[0] == '[') // data begins with '[' 
-        jsonObj["content"] = serialized(szContent);
-    else
-        jsonObj["content"] = szContent;
-
-    _ntpClient.update(); // update time value
-    // set seconds to millisecond value, require 64bit
-    jsonObj["createdAt"] = (uint64_t)_ntpClient.getEpochTime() * 1000; 
+    jsonObj["content"] = eventType == DATA_EVENT ? serialized(szContent) : szContent;
+    _ntpClient.update();                                               // update time value
+    jsonObj["createdAt"] = (uint64_t)_ntpClient.getEpochTime() * 1000; // set seconds to millisecond value, require 64bit
 
     String output;
     serializeJson(doc, output); // JSON to String (serializion)
     _socketIO.sendEVENT(output);
 
     debug_out2("Pub: ", output.c_str());
+    return 0;
 }
 //-------------------------------------------------------------
 void stopSocketIO()

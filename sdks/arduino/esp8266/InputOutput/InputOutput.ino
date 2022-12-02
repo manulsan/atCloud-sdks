@@ -33,7 +33,7 @@ Changes :  Input/Output port map is merged again
 #define OUT_DEFAULT 1
 #define MAX_INPUT 3
 #define MAX_OUTPUT 3
-#define OUTPUT_FIRST MAX_INPUT
+#define OUTPUT_BEGIN MAX_INPUT
 
 #define MAX_IO (MAX_INPUT + MAX_OUTPUT)
 Port _portMap[] = {{INPUT_0, INPUT_PULLUP, 0}, {INPUT_1, INPUT_PULLUP, 0}, {INPUT_2, INPUT_PULLUP, 0}, {OUTPUT_0, OUTPUT, OUT_DEFAULT}, {OUTPUT_1, OUTPUT, OUT_DEFAULT}, {OUTPUT_2, OUTPUT, OUT_DEFAULT}};
@@ -43,7 +43,7 @@ bool _bStatusPublishRequired = false;
 
 uint32_t _tsLastPublished = 0;
 uint32_t _dPublishInterval = 10000;
-extern void publish(char *szEventName, char *szContent);
+extern uint8_t publish(uint8_t eventType, char *szContent);
 
 void isrProc(int portIdx)
 {
@@ -118,7 +118,7 @@ void setOutput(uint8_t portIdx, uint8_t state)
 
 void setOutputAll(uint8_t state)
 {
-  for (int i = OUTPUT_FIRST; i < MAX_IO; i++)
+  for (int i = OUTPUT_BEGIN; i < MAX_IO; i++)
     setOutput(i, state);
 }
 
@@ -148,7 +148,9 @@ void publishStatus(char *szBuf)
 void setup()
 {
   Serial.begin(115200);
+  
   initIO();
+
   if (WiFi.getMode() & WIFI_AP)
     WiFi.softAPdisconnect(true);
   WiFiMulti.addAP(WIFI_SSID, WIFI_PWD);
