@@ -4,22 +4,59 @@ By generalizing IoT devices, all devices are managed as a single unit object. Al
 ## Live Demo : https://damosys.com:9000
 ---
 ## Basic network
-
 <img src="./assets/img/main-1.png">
-
 ## IoT Devices
-디바이스는 아래와 같이 3가지 타입으로 정의한다.
+Devices are defined in three types as follows.
 ### "IO Device"
- 아래와 같은 조합으로 하나의 자치는 회대 10개의 정보를 가질 수 있다.
-- input 
-- output
-- measureed data value
+ With the following combination, one autonomous city can have 10 pieces of information.
+- Input device
+  Data Gathering Devices
+    ```
+    Input signal( 0 or 1)
+    Generic Sensor input
+    ```
 
-### GPS Tracker 장치
-- GPS데이타를 수집하여 업로딩한다.
-
-
+- Output device
+  Controlling Devices
+    ```
+    Output ( 0 or 1) like Relay
+    Generic commands(user defined command)
+    ```
+### GPS Tracker
+- GPS data uploading device
 ### CCTV 
-- 영상 데이타를 업로딩 한다.
+- CCTV Streaming Device
 
-## 장치의 데이타 속성 정의
+
+## Device Data Syntax
+The device uploads data in a standardized format. The following syntax applies. Device isdesigned upload "DATA" and "STATUS OF DEVICE" <br>
+### Data Syntax
+- [number1,...,number-10], number can be "integer" and "float" type
+- It can be one data like [number] and also can be be two like [number,number], max 10 number can be applied 
+- [Arnuino Sample Cde Here](https://github.com/manulsan/atCloud/blob/main/sdks/arduino/esp8266/InputOutput/InputOutput.ino)
+- ex>
+ ```js
+    void publishData(uint32_t now)
+    {
+        char szBuf[128];
+        sprintf(szBuf, "[%d,%d,%d,%d,%d,%d]",
+                _portMap[0].state, _portMap[1].state, _portMap[2].state,
+                _portMap[3].state, _portMap[4].state, _portMap[5].state);        
+        publish("dev-data", szBuf);    
+ ```
+
+  
+### STATUS Syntax
+- Any string 
+- ex>
+```
+    publish("dev-data", "System is Ready");    
+```
+
+## Device Data And App View expression
+- Device has "Serial Number" only.
+- The data is defined at the platform by the user.( if not, default property is applied)
+- <bold> "Data Field"</bold> is one of device data expression and uer can define it name or properties
+- All information can be made with QR code ( commercial device only )
+
+<img src="./assets/img/menu-add-device.png">
