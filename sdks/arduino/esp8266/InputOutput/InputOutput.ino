@@ -22,8 +22,8 @@ Changes :  Input/Output port map is merged again
 #define PUBLISH_INTERVAL 100000 // 10 seconds, if 0 ,no timed  publishing
 #define WIFI_SSID "DAMOSYS"
 #define WIFI_PWD "damo8864"
-#define SERIAL_NO "your-device-device-serial-no" // change with your device serival #, (sn-esp8266-io)
-//#define SERIAL_NO "sn-esp8266-io" // change with your device serival #
+//#define SERIAL_NO "your-device-device-serial-no" // change with your device serival #, (sn-esp8266-io)
+#define SERIAL_NO "sn-esp8266-io" // change with your device serival #
 
 #define INPUT_0 5
 #define INPUT_1 4

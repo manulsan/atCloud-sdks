@@ -29,7 +29,7 @@ Devices are defined in three types as follows.
 
 
 ## Device Data Syntax
-The device uploads data in a standardized format. The following syntax applies. Device isdesigned upload "DATA" and "STATUS OF DEVICE" <br>
+The device uploads data in a standardized format. The following syntax applies. It is designed to upload "DATA" and "STATUS OF DEVICE" <br>
 ### Data Syntax
 - [number1,...,number-10], number can be "integer" and "float" type
 - It can be one data like [number] and also can be be two like [number,number], max 10 number can be applied 

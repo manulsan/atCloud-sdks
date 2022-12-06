@@ -16,9 +16,9 @@ void initSocketIO(char *szDeviceNo, void (*ptr)(String jsonStr), void (*ptr2)(bo
     sprintf(szBuf, "%s?sn=%s", _SIO_PATH_, szDeviceNo);
 
 #ifdef USE_SSL
-        _socketIO.beginSSL(SERVER_URL, SERVER_PORT, szBuf);        
+    _socketIO.beginSSL(SERVER_URL, SERVER_PORT, szBuf);
 #else
-        _socketIO.begin(SERVER_URL, SERVER_PORT, szBuf);
+    _socketIO.begin(SERVER_URL, SERVER_PORT, szBuf);
 #endif
     cbSocketDataReceived = ptr;
     cbSocketConnection = ptr2;
@@ -96,7 +96,10 @@ uint8_t publish(uint8_t eventType, char *szContent)
     root.add(eventType == DATA_EVENT ? "dev-data" : "dev-status");
 
     JsonObject jsonObj = root.createNestedObject();
-    jsonObj["content"] = eventType == DATA_EVENT ? serialized(szContent) : szContent;
+    if (eventType == DATA_EVENT)
+        jsonObj["content"] = serialized(szContent);
+    else
+        jsonObj["content"] = szContent;
     _ntpClient.update();                                               // update time value
     jsonObj["createdAt"] = (uint64_t)_ntpClient.getEpochTime() * 1000; // set seconds to millisecond value, require 64bit
 
@@ -104,7 +107,7 @@ uint8_t publish(uint8_t eventType, char *szContent)
     serializeJson(doc, output); // JSON to String (serializion)
     _socketIO.sendEVENT(output);
 
-    debug_out2("Pub: ", output.c_str());
+    debug_out2("data Pub: ", output.c_str());
     return 0;
 }
 //-------------------------------------------------------------
