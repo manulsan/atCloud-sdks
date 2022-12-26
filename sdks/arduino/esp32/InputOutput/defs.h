@@ -1,46 +1,47 @@
-#if !defined(ESP8266)
+//#if !defined(ESP8266)
+#if !defined(ESP32)
 #error This code is intended to run only on the ESP8266 boards ! Please check your Tools->Board setting.
 #endif
 
 #ifndef DEFS_H
 #define DEFS_H
-
-// #ifdef ESP8266
-// extern "C"
-// {
-// #include "user_interface.h"
-// }
-// #endif
-
-#include <ESP8266WiFi.h>
-#include <ESP8266WiFiMulti.h>
-
+//#include <ESP8266WiFi.h>
+//#include <ESP8266WiFiMulti.h>
+#include <WiFi.h>
 #include <WiFiUdp.h>
 #include <NTPClient.h>
 #include <ArduinoJson.h>
 
-//#include <WebSocketsClient_Generic.h>
 #include <SocketIOclient_Generic.h>
-#include <Hash.h>
-
-#define SERVER_URL "192.168.123.226"
-#define SERVER_PORT 9011
+//#include <Hash.h>
 
 WiFiUDP ntpUDP;
-ESP8266WiFiMulti WiFiMulti;
+//ESP8266WiFiMulti WiFiMulti;
 NTPClient _ntpClient(ntpUDP, "asia.pool.ntp.org", 0, 600000); // https://lastminuteengineers.com/esp8266-ntp-server-date-time-tutorial/
 
 SocketIOclient _socketIO;
+typedef struct _tag
+{
+  uint8_t pin;
+  uint8_t type;
+  uint8_t state;
+} Port;
 
-//**********************************************************
-// user can change below 2 lines
-#define _IO_CONTROL_
-#ifdef _IO_CONTROL_
-#define _BULB_CONTROL_
+
+#define SERVER_URL "damosys.com"
+
+#define USE_SSL    true
+#ifdef USE_SSL
+#define SERVER_PORT 9000    // to nginX https
+#else
+#define SERVER_PORT 9011
 #endif
-#define DEBUG
-//**********************************************************
 
+
+#define DATA_EVENT 0
+#define STATUS_EVENT 1
+
+#define DEBUG
 #ifdef DEBUG
 //----------------------------------------------------------------------
 void debug_out1(const char *sz1)
@@ -57,7 +58,7 @@ void debug_out2(const char *sz1, const char *sz2)
 void debugHexDump(char *szTitle, uint8_t *payload, const size_t &length)
 {
   Serial.print(szTitle);
-  hexdump(payload, length);
+  //hexdump(payload, length);
 }
 #else
 #define debug_out1(sz1)

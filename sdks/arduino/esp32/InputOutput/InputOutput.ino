@@ -1,18 +1,10 @@
-/****************************************************************************************************************************
-  Device.ino
-  Based on and modified from WebSockets libarary https://github.com/Links2004/arduinoWebSockets
-  to support other boards such as  SAMD21, SAMD51, Adafruit's nRF52 boards, etc.
-
-  Built by Khoi Hoang https://github.com/khoih-prog/WebSockets_Generic
-  Licensed under MIT license
-
-  Originally Created on: 06.06.2016
-  Original Author: Markus Sattler
-
-  User's device working code.
+/*******************************************************************************************
+  inputoutput.ino
+  Device : ESP32 ( Olimex ESP32 EVB )
+  Desc : 1 input and 2 output(relay) controls.
   notions:
     - "SERIAL_NO" requires device serial number
-    - "PUBLISH_INTERVAL"
+    - "PUB_INTERVAL_MILLIS"
          if values is 0 then no no automaticcal publishing
          otherwise data is published every interval
     - getDeviceData is called every interval
@@ -20,186 +12,180 @@
 
 Files:
    InputOutput.ino :  it can be modified for user's application
-   SocketIO.ino : no modifications.
-   defs.h :  _IO_CONTROL_, DEBUG can be modified.
-*****************************************************************************************************************************/
+   SocketIO.ino : no modifications required.
+   defs.h :  header file.
+Versio : 1.0
+Updats : 1.1 / socketIO over https
+Changes :  Input/Output port map is merged again
+***********************************************************************************/
+
 #include "defs.h"
-
-#define SERIAL_NO "sn-esp8266-light" // change with your device serival #
-#define PUBLISH_INTERVAL 10000       // 10 seconds, if 0 then no "timed data publishing"
-
 #define WIFI_SSID "DAMOSYS"
 #define WIFI_PWD "damo8864"
+// #define SERIAL_NO "your-device-device-serial-no" // change with your device serival #, (sn-esp8266-io)
+#define SERIAL_NO "sn-io-esP32-device" // change with your device serival #
 
-#ifdef _IO_CONTROL_
-// GPIO pin definitions ---------------------------------------------
-#define OUTPUT_0 14
-#define OUTPUT_1 13
-#define OUTPUT_2 16
-#define INPUT_0 5
-#define INPUT_1 4
-#define INPUT_2 3
+#define OUTPUT_0 32
+#define OUTPUT_1 33
+#define INPUT_0 34
 
-#define MAX_INPUT 3
-#define MAX_OUTPUT 3
+#define MAX_INPUT 1
+#define MAX_OUTPUT 2
+#define OUTPUT_BEGIN MAX_INPUT
+
+//-- !import, change function publishData with MAX_IO
 #define MAX_IO (MAX_INPUT + MAX_OUTPUT)
+//--------------------------------------------------------------
 
-typedef struct _tag
+Port _portMap[] = {{INPUT_0, INPUT_PULLUP, 0}, {OUTPUT_0, OUTPUT, 0}, {OUTPUT_1, OUTPUT, 0}};
+
+#define PUB_INTERVAL_MILLIS 100000              // milli-seconds
+uint32_t _tsLastPublished = 0;
+extern uint8_t publish(uint8_t eventType, char *szContent);
+
+bool _bSocketConnected = false;
+bool _bDataPublishRequired = false;
+bool _bStatusPublishRequired = false;
+
+void isrProc(int portIdx)
 {
-  uint8_t pin;
-  uint8_t type;
-  uint8_t state;
-} Port;
+  // debug_out2("isrProc","called");
+  _portMap[portIdx].state = !_portMap[portIdx].state;
+  _bDataPublishRequired = true;
+}
+ICACHE_RAM_ATTR void isr_0() { isrProc(0); }
 
-// setup Pin map
-Port _ports[MAX_IO] = {
-    {INPUT_0, INPUT_PULLUP, 0},
-    {INPUT_1, INPUT_PULLUP, 0},
-    {INPUT_2, INPUT_PULLUP, 0},
-    {OUTPUT_0, OUTPUT, 0},
-    {OUTPUT_1, OUTPUT, 0},
-    {OUTPUT_2, OUTPUT, 0},
-};
+void connectionCallback(bool status)
+{
+  debug_out2(__FUNCTION__, status ? "connected" : "dis-connected");
+  if (status)
+    _bStatusPublishRequired = status;
+  _bSocketConnected = status;
+}
+
+void eventCallback(String jsonStr)
+{
+  const int capacity = JSON_ARRAY_SIZE(3) + 4 * JSON_OBJECT_SIZE(4) + 10 * JSON_OBJECT_SIZE(1);
+  StaticJsonDocument<capacity> doc;
+  DeserializationError err = deserializeJson(doc, jsonStr);
+  if (err)
+  {
+    debug_out2("deserializeJson() returned ", (const char *)err.f_str());
+    return;
+  }
+  auto cmd = doc["cmd"].as<const char *>();
+  if (strcmp(cmd, "output") == 0)
+  {
+    auto f = doc["content"]["field"].as<int>();
+    auto v = doc["content"]["value"].as<int>();
+    setOutput(f, v);
+  }
+  else if (strcmp(cmd, "output-all") == 0)
+  {
+    auto v = doc["content"]["value"].as<int>();
+    setOutputAll(v);
+  }
+  else if (strcmp(cmd, "sync") == 0)
+    _bDataPublishRequired = true;
+  else if (strcmp(cmd, "reboot") == 0)
+  {
+    stopSocketIO();
+    ESP.restart();
+  }
+  // else if (strcmp(cmd, "chat") == 0)  {}
+}
+
+void setOutput(uint8_t portIdx, uint8_t state)
+{
+  if (portIdx >= 0 && portIdx < MAX_IO)
+  {
+    if (_portMap[portIdx].type == OUTPUT)
+    {
+      _portMap[portIdx].state = state ? 1 : 0;
+      digitalWrite(_portMap[portIdx].pin, _portMap[portIdx].state);
+      _bDataPublishRequired = true;
+    }
+    else
+    {
+      debug_out2((char *)__FUNCTION__, "invalid cmd, port is not mapped as output");
+    }
+  }
+  else
+  {
+    debug_out2((char *)__FUNCTION__, "invalid portIdx");
+  }
+}
+
+void setOutputAll(uint8_t state)
+{
+  for (int i = OUTPUT_BEGIN; i < MAX_IO; i++)
+    setOutput(i, state);
+}
+
+void publishData(uint32_t now)
+{
+  char szBuf[128];
+  // int and float, both are  for expression of json string
+#if 1
+  //  if user as as input/output, it shoule is bes as integer
+  sprintf(szBuf, "[%d,%d,%d]", _portMap[0].state, _portMap[1].state, _portMap[2].state);
+#else //  if user as "gathering device" with values with float , data is array of float
+  sprintf(szBuf, "[%.2f,%.2f,%.2f]", (float)_portMap[0].state, (float)_portMap[1].state, (float)_portMap[2].state);
 #endif
+  if (_bSocketConnected)
+    publish(DATA_EVENT, szBuf);
+  _bDataPublishRequired = false;
+  _tsLastPublished = now;
+}
+
+void publishStatus(char *szBuf)
+{
+  publish(STATUS_EVENT, szBuf);
+  _bStatusPublishRequired = false;
+}
 
 void setup()
 {
   Serial.begin(115200);
-  debug_out2(ARDUINO_BOARD, WEBSOCKETS_GENERIC_VERSION);
+  Serial.print("Setup is called");
 
-  if (WiFi.getMode() & WIFI_AP)
-    WiFi.softAPdisconnect(true);
+  WiFi.begin(WIFI_SSID, WIFI_PWD);
 
-  WiFiMulti.addAP(WIFI_SSID, WIFI_PWD);
-  while (WiFiMulti.run() != WL_CONNECTED)
+  WiFi.begin(WIFI_SSID, WIFI_PWD);
+  while (WiFi.status() != WL_CONNECTED)
   {
-    debug_out1(".");
+    Serial.print(".");
     delay(100);
   }
-  initDevice();
+  Serial.println("\nWiFi connected.");
+  Serial.println("IP address: ");
+  Serial.println(WiFi.localIP());
+  initIO();
+  initSocketIO(SERIAL_NO, &eventCallback, &connectionCallback);
 }
 
-//----------------------------------------------------------------------
-void initDevice()
+void initIO()
 {
-#ifdef _IO_CONTROL_
+  int ledStatus = 0;
   for (int i = 0; i < MAX_IO; i++)
   {
-    pinMode(_ports[i].pin, _ports[i].type);
-    if (_ports[i].type == OUTPUT)
-      setOutput(i, HIGH);
+    pinMode(_portMap[i].pin, _portMap[i].type);
+    if (_portMap[i].type == OUTPUT)
+      digitalWrite(_portMap[i].pin, _portMap[i].state);
     else
-      _ports[i].state = digitalRead(_ports[i].pin);
+      _portMap[i].state = digitalRead(_portMap[i].pin);
   }
-#endif
-
-  initSocketIO(SERIAL_NO, PUBLISH_INTERVAL);
-#ifdef _BULB_CONTROL_
-  // attachInterrupt(digitalPinToInterrupt(INPUT_MOTION), isr_motion, FALLING);
-  attachInterrupt(digitalPinToInterrupt(INPUT_0), isr_0, FALLING);
-  attachInterrupt(digitalPinToInterrupt(INPUT_1), isr_1, FALLING);
-  attachInterrupt(digitalPinToInterrupt(INPUT_2), isr_2, FALLING);
-#endif
+  // attachInterrupt(digitalPinToInterrupt(INPUT_0), isr_0, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(INPUT_0), isr_0, FALLING); // LOW, CHANGE, RISING, FALLING, ,HIGH
+  // attachInterrupt(digitalPinToInterrupt(INPUT_0), isr_0, RISING); // LOW, CHANGE, RISING, FALLING, ,HIGH
 }
-#ifdef _BULB_CONTROL_
-void isrProc(int inputIndex)
-{
-  // set input flag as low,  interrupted with FALLING-EDGE
-  //_ports[inputIndex].state = ! _ports[inputIndex].state;
-  _ports[inputIndex].state = LOW;
 
-  // set output toggled by input
-  int outputIdx = MAX_INPUT + inputIndex;
-  setOutput(outputIdx, !_ports[outputIdx].state);
-  setPublish(true);
-}
-ICACHE_RAM_ATTR void isr_0() { isrProc(0); }
-ICACHE_RAM_ATTR void isr_1() { isrProc(1); }
-ICACHE_RAM_ATTR void isr_2() { isrProc(2); }
-#else
-//----------------------------------------------------------------------
-void ioLoop()
-{
-#ifdef _IO_CONTROL_
-  int v;
-  bool bStateChanged = false;
-  for (int i = 0; i < MAX_INPUT; i++)
-  {
-    v = digitalRead(_ports[i].pin);
-    if (_ports[i].state != v)
-    {
-      _ports[i].state = v;
-      bStateChanged = true;
-    }
-  }
-  if (bStateChanged)
-    setPublish(true);
-#endif
-}
-#endif
-
-//----------------------------------------------------------------------
 void loop()
 {
-#ifndef _BULB_CONTROL_
-  ioLoop(); // input signal polling,
-#endif
-  socketIOLoop(); // work for networking communication
+  uint32_t now = millis();
+  if (_bDataPublishRequired || ((now - _tsLastPublished) > PUB_INTERVAL_MILLIS))
+    publishData(now);
+  if (_bStatusPublishRequired)
+    publishStatus("Connected");
+  socketIOLoop();
 }
-
-/***********************************************************************
- fuations: called by socketIO.ino
-***********************************************************************/
-//-----------------------------------------------------------------------
-// desc : called "timed data publishing" by "PUBLISH_INTERVAL"
-//        or setPublish(true) called by user call( manual call)
-//        fill your IO data to szBuf
-void getDeviceData(char *szBuf)
-{
-#ifdef _IO_CONTROL_
-  sprintf(szBuf, "[%d,%d,%d,%d,%d,%d]",
-          _ports[0].state, _ports[1].state, _ports[2].state,
-          _ports[3].state, _ports[4].state, _ports[5].state);
-#else
-  sprintf(szBuf, "[%d,%d,%d]", 0, 0, 0);
-#endif
-}
-
-//-----------------------------------------------------------------------
-// desc : reboot
-void reboot()
-{
-  ESP.restart(); // ESP.reset();
-}
-
-#ifdef _IO_CONTROL_
-//-----------------------------------------------------------------------
-// field : output port index, begins with 0
-void setOutput(uint8_t field, uint8_t state)
-{
-  if (field < 0 || field >= MAX_IO)
-  {
-    debug_out2((char *)__FUNCTION__, "invalid field");
-    return;
-  }
-
-  if (_ports[field].type == OUTPUT)
-  {
-    _ports[field].state = state;
-    digitalWrite(_ports[field].pin, state);
-  }
-  else
-  {
-    debug_out2(__FUNCTION__, "port type invalid");
-  }
-}
-
-//-----------------------------------------------------------------------
-// desc : set all output port with 'value'
-// value : 0 or 1
-void setOutputAll(uint8_t state)
-{
-  for (int i = MAX_INPUT; i <= MAX_OUTPUT; i++)
-    setOutput(i, state);
-}
-#endif
