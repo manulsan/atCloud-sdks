@@ -39,6 +39,11 @@ typedef struct _tag
 #define DATA_EVENT 0
 #define STATUS_EVENT 1
 
+#define ACTIVE_LOW 0
+#define ACTIVE_HIGHT 1
+
+#define OUTPUT_ACTIVE  ACTIVE_LOW
+
 #define DEBUG
 #ifdef DEBUG
 //----------------------------------------------------------------------
@@ -57,6 +62,19 @@ void debugHexDump(char *szTitle, uint8_t *payload, const size_t &length)
 {
   Serial.print(szTitle);
   hexdump(payload, length);
+}
+#include <stdarg.h>
+void debugF(char *fmt, ... ){
+  char buf[128]; // resulting string limited to 128 chars
+  va_list args;
+  va_start (args, fmt);
+#ifdef __AVR__
+  vsnprintf_P(buf, sizeof(buf), (const char *)fmt, args); // progmem for AVR
+#else
+  vsnprintf(buf, sizeof(buf), (const char *)fmt, args); // for the rest of the world
+#endif
+  va_end(args);
+  Serial.print(buf);
 }
 #else
 #define debug_out1(sz1)

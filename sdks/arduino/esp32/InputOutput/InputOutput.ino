@@ -53,6 +53,7 @@ void isrProc(int portIdx)
   _portMap[portIdx].state = !_portMap[portIdx].state;
   _bDataPublishRequired = true;
 }
+
 ICACHE_RAM_ATTR void isr_0() { isrProc(0); }
 
 void connectionCallback(bool status)

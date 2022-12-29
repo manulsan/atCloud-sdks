@@ -6,11 +6,25 @@ bool _bSocketIOConnected = false;
 bool _bInitialConnection = true;
 static void (*cbSocketDataReceived)(String jsonStr) = NULL;
 static void (*cbSocketConnection)(bool status) = NULL;
+
+// #define RECONNECT_INTERVAL 10000
+// #define PING_INTERVAL 3000
+// #define PING_TIMEOUT 2000
+// #define NO_PONG_COUNT_AS_DISCONNECTED 2
 void initSocketIO(char *szDeviceNo, void (*ptr)(String jsonStr), void (*ptr2)(bool status))
 {
     _ntpClient.begin();
     _socketIO.onEvent(onEvent);
+
+    // try ever 10000 again if connection has failed
     _socketIO.setReconnectInterval(10000);
+
+    // start heartbeat (optional)
+    // ping server every 15000 ms
+    // expect pong from server within 3000 ms
+    // consider connection disconnected if pong is not received 2 times
+    //_socketIO.enableHeartbeat(PING_INTERVAL, PING_TIMEOUT, NO_PONG_COUNT_AS_DISCONNECTED);
+    //_socketIO.enableHeartbeat(3000, 3000, 2);
 
     char szBuf[256];
     sprintf(szBuf, "%s?sn=%s", _SIO_PATH_, szDeviceNo);
