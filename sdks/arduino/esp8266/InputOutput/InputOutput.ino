@@ -1,3 +1,5 @@
+ #include <AtCloudIF.h>
+
 /*******************************************************************************************
   Device.ino
   User's device working code. input work as toggle button
@@ -38,7 +40,7 @@ Changes :  Input/Output port map is merged again
 
 #define ACTIVE_LOW 0
 #define SIGINAL_ACTIVE ACTIVE_LOW
-#define ACTIVATION_CONVERSION(x) (SIGINAL_ACTIVE == ACTIVE_LOW ? !x : x)
+#define ACTIVE_STATUS(x) (SIGINAL_ACTIVE == ACTIVE_LOW ? !x : x)
 
 #define MAX_INPUT 3
 #define MAX_OUTPUT 3
@@ -113,7 +115,7 @@ void initIO()
     if (_portMap[i].type == OUTPUT)
       setOutput(i, _portMap[i].state);
     else
-      _portMap[i].state = ACTIVATION_CONVERSION(digitalRead(_portMap[i].pin)); // on to 1, off to 0
+      _portMap[i].state = digitalRead(_portMap[i].pin); // just read signal only
   }
   attachInterrupt(digitalPinToInterrupt(INPUT_0), isr_0, FALLING);
   attachInterrupt(digitalPinToInterrupt(INPUT_1), isr_1, FALLING);
@@ -130,7 +132,7 @@ void setOutput(uint8_t portIdx, uint8_t state)
     {
       _portMap[portIdx].state = state ? 1 : 0;
       debugF("portIndex=%d  portState=%d", portIdx, _portMap[portIdx].state);
-      digitalWrite(_portMap[portIdx].pin, ACTIVATION_CONVERSION(_portMap[portIdx].state));
+      digitalWrite(_portMap[portIdx].pin, ACTIVE_STATUS(_portMap[portIdx].state));
       _bDataPublishRequired = true;
     }
     else
@@ -154,7 +156,7 @@ void publishData(uint32_t now)
 {
   char szBuf[128];
   sprintf(szBuf, "[%d,%d,%d,%d,%d,%d]",
-          ACTIVATION_CONVERSION(_portMap[0].state), ACTIVATION_CONVERSION(_portMap[1].state), ACTIVATION_CONVERSION(_portMap[2].state),
+          ACTIVE_STATUS(_portMap[0].state), ACTIVE_STATUS(_portMap[1].state), ACTIVE_STATUS(_portMap[2].state),
           _portMap[3].state, _portMap[4].state, _portMap[5].state);
 
   if (_bSocketConnected)
@@ -166,12 +168,13 @@ void publishData(uint32_t now)
   _bDataPublishRequired = false;
   _tsLastPublished = now;
 }
-
+/*
 void publishStatus(char *szBuf)
 {
   publish(STATUS_EVENT, szBuf);
   _bStatusPublishRequired = false;
 }
+*/
 
 void setup()
 {
@@ -197,6 +200,10 @@ void loop()
   if (_bDataPublishRequired || ((now - _tsLastPublished) > _dPublishInterval))
     publishData(now);
   if (_bStatusPublishRequired)
-    publishStatus("Connected");
+  {
+    publish(STATUS_EVENT, "Connected");
+    _bStatusPublishRequired = false;
+  }
+  // publishStatus("Connected");
   socketIOLoop();
 }

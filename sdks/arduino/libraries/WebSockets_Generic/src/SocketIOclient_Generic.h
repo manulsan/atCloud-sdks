@@ -1,12 +1,12 @@
 /****************************************************************************************************************************
   SocketIOclient_Generic.h - WebSockets Library for boards
-  
+
   Based on and modified from WebSockets libarary https://github.com/Links2004/arduinoWebSockets
   to support other boards such as  SAMD21, SAMD51, Adafruit's nRF52 boards, etc.
-  
+
   Built by Khoi Hoang https://github.com/khoih-prog/WebSockets_Generic
   Licensed under MIT license
-   
+
   @original file SocketIOclient.h
   @Created on: May 12, 2018
   @Author: links
@@ -27,8 +27,8 @@
   You should have received a copy of the GNU Lesser General Public
   License along with this library; if not, write to the Free Software
   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-  
-  Version: 2.15.0
+
+  Version: 2.16.1
 
   Version Modified By   Date      Comments
   ------- -----------  ---------- -----------
@@ -43,6 +43,8 @@
   2.14.1  K Hoang      18/02/2022 Fix setInsecure() bug for WIO_Terminal. Update Packages_Patches for Seeeduino
   2.14.2  K Hoang      27/03/2022 Fix Async bug for ESP8266 when using NETWORK_ESP8266_ASYNC
   2.15.0  K Hoang      06/04/2022 Use Ethernet_Generic library as default. Sync with arduinoWebSockets v2.3.6
+  2.16.0  K Hoang      13/10/2022 Add WS and WSS support to RP2040W using CYW43439 WiFi
+  2.16.1  K Hoang      24/11/2022 Using new WiFi101_Generic library
  *****************************************************************************************************************************/
 
 #pragma once
@@ -50,17 +52,41 @@
 #ifndef SOCKET_IO_CLIENT_GENERIC_H_
 #define SOCKET_IO_CLIENT_GENERIC_H_
 
+////////////////////////////////////////
+
 #if !defined(USING_STICKY_SESSION_SIO)
   #define USING_STICKY_SESSION_SIO          false
 #endif
 
+////////////////////////////////////////
+
+#if !defined(SIO_PING_INTERVAL)
+  #define SIO_PING_INTERVAL                     60000L
+#endif
+
+#if !defined(SIO_PONG_TIMEOUT)
+  #define SIO_PONG_TIMEOUT                      90000L
+#endif
+
+#if !defined(SIO_DISCONNECT_TIMEOUT_COUNT)
+  #define SIO_DISCONNECT_TIMEOUT_COUNT          5
+#endif
+
+////////////////////////////////////////
+
 #include "WebSockets_Generic.h"
 #include "WebSocketsClient_Generic.h"
 
-#define EIO_HEARTBEAT_INTERVAL 20000
+////////////////////////////////////////
+
+#if !defined(EIO_HEARTBEAT_INTERVAL)
+  #define EIO_HEARTBEAT_INTERVAL          20000
+#endif
 
 #define EIO_MAX_HEADER_SIZE (WEBSOCKETS_MAX_HEADER_SIZE + 1)
 #define SIO_MAX_HEADER_SIZE (EIO_MAX_HEADER_SIZE + 1)
+
+////////////////////////////////////////
 
 typedef enum
 {
@@ -72,6 +98,8 @@ typedef enum
   eIOtype_UPGRADE = '5',    ///< Before engine.io switches a transport, it tests, if server and client can communicate over this transport. If this test succeed, the client sends an upgrade packets which requests the server to flush its cache on the old transport and switch to the new transport.
   eIOtype_NOOP    = '6',    ///< A noop packet. Used primarily to force a poll cycle when an incoming websocket connection is received.
 } engineIOmessageType_t;
+
+////////////////////////////////////////
 
 typedef enum
 {
@@ -86,6 +114,9 @@ typedef enum
   sIOtype_PONG         = '8',
 } socketIOmessageType_t;
 
+////////////////////////////////////////
+////////////////////////////////////////
+
 class SocketIOclient : protected WebSocketsClient
 {
   public:
@@ -99,30 +130,30 @@ class SocketIOclient : protected WebSocketsClient
     virtual ~SocketIOclient();
 
     // KH, change to default EIO=4. v2.5.1
-    void begin(const char * host, const uint16_t& port, const char * url = "/socket.io/?EIO=4", 
+    void begin(const char * host, const uint16_t& port, const char * url = "/socket.io/?EIO=4",
                const char * protocol = "arduino");
-               
-    void begin(const String& host, const uint16_t& port, const String& url = "/socket.io/?EIO=4", 
+
+    void begin(const String& host, const uint16_t& port, const String& url = "/socket.io/?EIO=4",
                const String& protocol = "arduino");
     // KH
-    void begin(const IPAddress& host, const uint16_t& port, const String& url = "/socket.io/?EIO=4", 
+    void begin(const IPAddress& host, const uint16_t& port, const String& url = "/socket.io/?EIO=4",
                const String& protocol = "arduino");
 
 #ifdef HAS_SSL
-    void beginSSL(const char * host, const uint16_t& port, const char * url = "/socket.io/?EIO=4", 
+    void beginSSL(const char * host, const uint16_t& port, const char * url = "/socket.io/?EIO=4",
                   const char * protocol = "arduino");
-                  
-    void beginSSL(const String& host, const uint16_t& port, const String& url = "/socket.io/?EIO=4", 
+
+    void beginSSL(const String& host, const uint16_t& port, const String& url = "/socket.io/?EIO=4",
                   const String& protocol = "arduino");
 #ifndef SSL_AXTLS
-    void beginSSLWithCA(const char * host, const uint16_t& port, const char * url = "/socket.io/?EIO=4", 
+    void beginSSLWithCA(const char * host, const uint16_t& port, const char * url = "/socket.io/?EIO=4",
                         const char * CA_cert = NULL, const char * protocol = "arduino");
-                        
-    void beginSSLWithCA(const char * host, const uint16_t& port, const char * url = "/socket.io/?EIO=4", 
+
+    void beginSSLWithCA(const char * host, const uint16_t& port, const char * url = "/socket.io/?EIO=4",
                         BearSSL::X509List * CA_cert = NULL, const char * protocol = "arduino");
-                        
+
     void setSSLClientCertKey(const char * clientCert = NULL, const char * clientPrivateKey = NULL);
-    
+
     void setSSLClientCertKey(BearSSL::X509List * clientCert = NULL, BearSSL::PrivateKey * clientPrivateKey = NULL);
 #endif
 #endif
@@ -142,26 +173,34 @@ class SocketIOclient : protected WebSocketsClient
     bool send(socketIOmessageType_t type, char * payload, size_t length = 0, bool headerToPayload = false);
     bool send(socketIOmessageType_t type, const char * payload, size_t length = 0);
     bool send(socketIOmessageType_t type, const String& payload);
-    
+
     void loop();
-    
+
     void configureEIOping(bool disableHeartbeat = false);
-    
+
+    ////////////////////////////////////////
+
     // KH, add v2.5.1
     inline void setReconnectInterval(const unsigned long& time)
     {
       _reconnectInterval = time;
     }
 
+    ////////////////////////////////////////
+
     inline void setExtraHeaders(const char * extraHeaders = nullptr)
     {
       WebSocketsClient::setExtraHeaders(extraHeaders);
     }
 
+  SocketIOclientEvent _cbEvent;
   protected:
     bool _disableHeartbeat  = false;
     uint64_t _lastHeartbeat = 0;
-    SocketIOclientEvent _cbEvent;
+    //SocketIOclientEvent _cbEvent;
+
+    ////////////////////////////////////////
+
     virtual void runIOCbEvent(socketIOmessageType_t type, uint8_t * payload, size_t length)
     {
       if (_cbEvent)
@@ -169,8 +208,12 @@ class SocketIOclient : protected WebSocketsClient
         _cbEvent(type, payload, length);
       }
     }
-    
+
+    ////////////////////////////////////////
+
     void initClient();
+
+    ////////////////////////////////////////
 
     // Handling events from websocket layer
     virtual void runCbEvent(WStype_t type, uint8_t * payload, size_t length)
@@ -178,8 +221,12 @@ class SocketIOclient : protected WebSocketsClient
       handleCbEvent(type, payload, length);
     }
 
+    ////////////////////////////////////////
+
     void handleCbEvent(WStype_t type, uint8_t * payload, size_t length);
 };
+
+////////////////////////////////////////
 
 #include "SocketIOclient_Generic-Impl.h"
 

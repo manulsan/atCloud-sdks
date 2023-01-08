@@ -1,4 +1,4 @@
-## WebSockets_Generic
+## WebSockets_Generic Library
 
 [![arduino-library-badge](https://www.ardu-badge.com/badge/WebSockets_Generic.svg?)](https://www.ardu-badge.com/WebSockets_Generic)
 [![GitHub release](https://img.shields.io/github/release/khoih-prog/WebSockets_Generic.svg)](https://github.com/khoih-prog/WebSockets_Generic/releases)
@@ -6,12 +6,21 @@
 [![contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](#Contributing)
 [![GitHub issues](https://img.shields.io/github/issues/khoih-prog/WebSockets_Generic.svg)](http://github.com/khoih-prog/WebSockets_Generic/issues)
 
+
+<a href="https://www.buymeacoffee.com/khoihprog6" title="Donate to my libraries using BuyMeACoffee"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Donate to my libraries using BuyMeACoffee" style="height: 50px !important;width: 181px !important;" ></a>
+<a href="https://www.buymeacoffee.com/khoihprog6" title="Donate to my libraries using BuyMeACoffee"><img src="https://img.shields.io/badge/buy%20me%20a%20coffee-donate-orange.svg?logo=buy-me-a-coffee&logoColor=FFDD00" style="height: 20px !important;width: 200px !important;" ></a>
+<a href="https://profile-counter.glitch.me/khoih-prog/count.svg" title="Total khoih-prog Visitor count"><img src="https://profile-counter.glitch.me/khoih-prog/count.svg" style="height: 30px;width: 200px;"></a>
+<a href="https://profile-counter.glitch.me/khoih-prog-WebSockets_Generic/count.svg" title="WebSockets_Generic Visitor count"><img src="https://profile-counter.glitch.me/khoih-prog-WebSockets_Generic/count.svg" style="height: 30px;width: 200px;"></a>
+
+
 ---
 ---
 
 ## Table of Contents
 
 * [Changelog](#changelog)
+  * [Release v2.16.1](#release-v2161)
+  * [Release v2.16.0](#release-v2160)
   * [Release v2.15.0](#release-v2150)
   * [Release v2.14.2](#release-v2142)
   * [Release v2.14.1](#release-v2141)
@@ -56,6 +65,24 @@
 ---
 
 ## Changelog
+
+### Release v2.16.1
+
+1. Using new [`WiFi101_Generic library`](https://github.com/khoih-prog/WiFi101_Generic) for sending larger data
+2. Add astyle using `allman` style. Restyle the library
+3. Update `Packages' Patches`
+
+### Release v2.16.0
+
+1. Add support to **RP2040-based boards, such as Nano_RP2040_Connect, RASPBERRY_PI_PICO, ADAFRUIT_FEATHER_RP2040**, using WiFiNINA or Ethernet
+2. Add `WS` and `BearSSL WSS` support to `RP2040W` using `CYW43439 WiFi` with `arduino-pico` core
+3. Optional user-defined 
+- `WEBSOCKETS_TCP_TIMEOUT`, default 5,000ms
+- `EIO_HEARTBEAT_INTERVAL`, default 20,000ms
+- `SIO_PING_INTERVAL`, default 60,000ms
+- `SIO_PONG_TIMEOUT`, default 90,000ms
+- `SIO_DISCONNECT_TIMEOUT_COUNT`, default 5
+4. Update `Packages' Patches`
 
 ### Release v2.15.0
 

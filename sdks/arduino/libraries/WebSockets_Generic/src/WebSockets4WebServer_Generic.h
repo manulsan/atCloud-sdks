@@ -1,12 +1,12 @@
 /****************************************************************************************************************************
   WebSockets4WebServer_Generic.h - WebSockets Library for boards
-  
+
   Based on and modified from WebSockets libarary https://github.com/Links2004/arduinoWebSockets
   to support other boards such as  SAMD21, SAMD51, Adafruit's nRF52 boards, etc.
-  
+
   Built by Khoi Hoang https://github.com/khoih-prog/WebSockets_Generic
   Licensed under MIT license
-   
+
   @original file WebSocketsServer.cpp
   @date 20.05.2015
   @author Markus Sattler
@@ -27,8 +27,8 @@
   You should have received a copy of the GNU Lesser General Public
   License along with this library; if not, write to the Free Software
   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-  
-  Version: 2.15.0
+
+  Version: 2.16.1
 
   Version Modified By   Date      Comments
   ------- -----------  ---------- -----------
@@ -43,6 +43,8 @@
   2.14.1  K Hoang      18/02/2022 Fix setInsecure() bug for WIO_Terminal. Update Packages_Patches for Seeeduino
   2.14.2  K Hoang      27/03/2022 Fix Async bug for ESP8266 when using NETWORK_ESP8266_ASYNC
   2.15.0  K Hoang      06/04/2022 Use Ethernet_Generic library as default. Sync with arduinoWebSockets v2.3.6
+  2.16.0  K Hoang      13/10/2022 Add WS and WSS support to RP2040W using CYW43439 WiFi
+  2.16.1  K Hoang      24/11/2022 Using new WiFi101_Generic library
  *****************************************************************************************************************************/
 
 #pragma once
@@ -55,25 +57,33 @@
 
 #if WEBSOCKETS_NETWORK_TYPE == NETWORK_ESP8266 && WEBSERVER_HAS_HOOK
 
+////////////////////////////////////////
+////////////////////////////////////////
+
 class WebSockets4WebServer : public WebSocketsServerCore
 {
   public:
+
+    ////////////////////////////////////////
+
     WebSockets4WebServer(const String & origin = "", const String & protocol = "arduino")
       : WebSocketsServerCore(origin, protocol)
     {
       begin();
     }
 
+    ////////////////////////////////////////
+
     ESP8266WebServer::HookFunction hookForWebserver(const String & wsRootDir, WebSocketServerEvent event)
     {
       onEvent(event);
 
-      return [&, wsRootDir](const String & method, const String & url, WiFiClient * tcpClient, 
-                            ESP8266WebServer::ContentTypeFunction contentType) 
+      return [&, wsRootDir](const String & method, const String & url, WiFiClient * tcpClient,
+                            ESP8266WebServer::ContentTypeFunction contentType)
       {
-        (void)contentType;
+        UNUSED (contentType);
 
-        if (!(method == "GET" && url.indexOf(wsRootDir) == 0)) 
+        if (!(method == "GET" && url.indexOf(wsRootDir) == 0))
         {
           return ESP8266WebServer::CLIENT_REQUEST_CAN_CONTINUE;
         }
@@ -84,7 +94,7 @@ class WebSockets4WebServer : public WebSocketsServerCore
         // Then initialize a new WSclient_t (like in WebSocketsServer::handleNewClient())
         WSclient_t * client = handleNewClient(newTcpClient);
 
-        if (client) 
+        if (client)
         {
           // give "GET <url>"
           String headerLine;
@@ -99,6 +109,10 @@ class WebSockets4WebServer : public WebSocketsServerCore
       };
     }
 };
+
+////////////////////////////////////////
+////////////////////////////////////////
+
 #else    // WEBSOCKETS_NETWORK_TYPE == NETWORK_ESP8266 && WEBSERVER_HAS_HOOK
 
 #ifndef WEBSERVER_HAS_HOOK
@@ -108,5 +122,7 @@ class WebSockets4WebServer : public WebSocketsServerCore
 #endif
 
 #endif    // WEBSOCKETS_NETWORK_TYPE == NETWORK_ESP8266 && WEBSERVER_HAS_HOOK
+
+////////////////////////////////////////
 
 #endif    // __WEBSOCKETS4WEBSERVER_GENERIC_H

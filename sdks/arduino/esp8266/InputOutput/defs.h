@@ -39,11 +39,6 @@ typedef struct _tag
 #define DATA_EVENT 0
 #define STATUS_EVENT 1
 
-#define ACTIVE_LOW 0
-#define ACTIVE_HIGHT 1
-
-#define OUTPUT_ACTIVE  ACTIVE_LOW
-
 #define DEBUG
 #ifdef DEBUG
 //----------------------------------------------------------------------
