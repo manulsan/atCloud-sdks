@@ -20,25 +20,11 @@
 #include <ArduinoJson.h>
 #include "config.h"
 #include "main.h"
+#ifdef HAS_LCD_240x320
+#include "lcd.h"
+#endif
 
-// ==================================================
-// Global Variables
-// ==================================================
-WebSocketsClient webSocket;
-bool socketConnected = false;
-bool bootupReady = false;
-String authToken = "";
-String socketSid = "";
-
-GpioState gpioInputs[3] = {
-    {GPIO_INPUT_1, false, false},
-    {GPIO_INPUT_2, false, false},
-    {GPIO_INPUT_3, false, false}};
-
-unsigned long lastGpioScan = 0;
-unsigned long lastDataSend = 0;
-unsigned long lastPingTime = 0;
-bool dataUpdateRequired = true; // Send update on bootup
+// Globals and function implementations remain in this file; declarations moved to `include/main.h`.
 
 // ==================================================
 // Setup
@@ -73,7 +59,19 @@ void setup()
         // Connect to Socket.IO
         connectSocketIO();
 
-        // LCD functionality moved to the separate `input-device-lcd` project
+#ifdef HAS_LCD_240x320
+        DEBUG_PRINTLN("[LCD] Initializing...");
+        LCD::begin();
+        LCD::fillScreen(0x001F);                 // Blue
+        LCD::drawRect(10, 10, 220, 100, 0xF800); // Red rectangle
+        LCD::setBacklight(255);
+
+        // Draw "Hello" centered-ish inside the red rectangle
+        // (uses a small block-font renderer implemented below)
+        lcdDrawText("Hello", 60, 40, 0xFFFF, 2);
+
+        DEBUG_PRINTLN("[LCD] Init done.");
+#endif
     }
     else
     {
@@ -390,32 +388,6 @@ void handleSocketIOPacket(const char *packet, size_t length)
                         {
                             DEBUG_PRINTLN("[SOCKET] Server confirmed connection!");
                         }
-                        //  ["app-cmd",{"operation":{"customCmd":"clear-call-bell","fieldIndex":2,"fieldValue":0}}]
-                        else if (eventName == "app-cmd" && arr.size() > 1)
-                        {
-                            JsonObject eventPayload = arr[1].as<JsonObject>();
-                            if (eventPayload.containsKey("operation"))
-                            {
-                                JsonObject operation = eventPayload["operation"].as<JsonObject>();
-                                if (operation.containsKey("customCmd"))
-                                {
-                                    String customCmd = operation["customCmd"].as<String>();
-                                    DEBUG_PRINTF("[SOCKET] Custom Command: %s\n", customCmd.c_str());
-                                    if (customCmd == "clear-call-bell")
-                                    {
-                                        uint8_t fieldIndex = operation["fieldIndex"] | 0;
-                                        uint8_t fieldValue = operation["fieldValue"] | 0;
-                                        DEBUG_PRINTF("[SOCKET] clear-call-bell - Index: %d, Value: %d\n", fieldIndex, fieldValue);
-                                        if (fieldIndex < SENSOR_COUNT && fieldValue >= 0)
-                                            gpioInputs[fieldIndex]
-                                                .state = fieldValue == 1 ? LOW : HIGH;
-                                        gpioInputs[fieldIndex].previousState = gpioInputs[fieldIndex].state;
-                                        dataUpdateRequired = true;
-                                    }
-                                    // Handle custom commands as needed
-                                }
-                            }
-                        }
                     }
                 }
             }
@@ -478,7 +450,61 @@ void emitDevStatus(const String &status)
     DEBUG_PRINTF("[STATUS] Emitted: %s\n", packet.c_str());
 }
 
-// LCD helper code moved to `input-device-lcd` project.
+// --- Simple LCD drawing helpers (block font) -------------------------------
+static void drawFilledRect(int x, int y, int w, int h, uint16_t color)
+{
+    for (int ix = 0; ix < w; ix++)
+        for (int iy = 0; iy < h; iy++)
+            LCD::drawPixel(x + ix, y + iy, color);
+}
+
+static void lcdDrawCharBlock(int x, int y, char c, uint16_t color, uint8_t scale)
+{
+    // Very small block-style glyphs for ASCII characters used in "Hello".
+    switch (c)
+    {
+    case 'H':
+        drawFilledRect(x, y, 3 * scale, 16 * scale, color);
+        drawFilledRect(x + 8 * scale, y, 3 * scale, 16 * scale, color);
+        drawFilledRect(x + 3 * scale, y + 6 * scale, 5 * scale, 3 * scale, color);
+        break;
+
+    case 'e':
+        drawFilledRect(x, y + 2 * scale, 10 * scale, 3 * scale, color);            // top bar
+        drawFilledRect(x, y + 2 * scale, 3 * scale, 12 * scale, color);            // left column
+        drawFilledRect(x + 3 * scale, y + 8 * scale, 7 * scale, 3 * scale, color); // middle bar
+        drawFilledRect(x, y + 14 * scale, 10 * scale, 3 * scale, color);           // bottom bar
+        break;
+
+    case 'l':
+        drawFilledRect(x + 3 * scale, y, 3 * scale, 16 * scale, color);
+        break;
+
+    case 'o':
+        LCD::drawRect(x, y, 10 * scale, 16 * scale, color);
+        drawFilledRect(x + 2 * scale, y + 2 * scale, 6 * scale, 12 * scale, color);
+        break;
+
+    case ' ':
+        // leave gap
+        break;
+
+    default:
+        // fallback: small box for unknown characters
+        LCD::drawRect(x, y, 6 * scale, 10 * scale, color);
+        break;
+    }
+}
+
+void lcdDrawText(const char *text, int x, int y, uint16_t color, uint8_t scale)
+{
+    int cursorX = x;
+    for (const char *p = text; *p; ++p)
+    {
+        lcdDrawCharBlock(cursorX, y, *p, color, scale);
+        cursorX += 12 * scale; // advance (letter width + spacing)
+    }
+}
 
 // ==================================================
 // Scan GPIO Inputs

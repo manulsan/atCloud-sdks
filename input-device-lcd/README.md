@@ -36,13 +36,20 @@ GPIO 33 ─── [Button/Sensor] ─── GND
 GPIO 25 ─── [Button/Sensor] ─── GND
 ```
 
-### LCD (moved)
-All LCD-related code (ST7789P3 driver + demo) has been moved to the separate project:
+### LCD (ST7789P3) — 기본 핀맵 (모듈: ESP32-32E-7789)
+- `LCD_SCK_PIN` = IO14  (SPI SCK)
+- `LCD_MOSI_PIN` = IO13 (SPI MOSI)
+- `LCD_MISO_PIN` = IO12 (SPI MISO)
+- `LCD_CS_PIN`   = IO15  (Chip Select)
+- `LCD_DC_PIN`   = IO2   (Data/Command)
+- `LCD_RST_PIN`  = IO22  (Reset, 모듈 리셋 공유)
+- `LCD_BL_PIN`   = IO21  (Backlight PWM)
 
-`device-sdk/c/platformio/input-device-lcd`
+> 참조: https://www.alibaba.com/product-detail/Support-NerdMiner-V2-ESP32-2-8_1601486878318.html?spm=a2700.prosearch.normal_offer.d_image.1f6967af2tr1Gl&priceId=7e207ed910ad4a4aabf9b7327edcf9f4
+ 
+> 위 값은 `include/config.h`의 `LCD_*` 매크로에 반영되어 있습니다.
 
-See that project's README for pinout and usage.
-
+![alt text](image.png)
 
 > 💡 **참고**: GPIO 핀은 내부 풀업 저항으로 설정됩니다. 버튼을 누르면 LOW(0), 떼면 HIGH(1)
 

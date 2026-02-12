@@ -20,51 +20,13 @@
 #include <WebSocketsClient.h>
 #include <ArduinoJson.h>
 #include "config.h"
+#include "main.h"
+#ifdef HAS_LCD_240x320
+#include "lcd.h"
+#endif
 
-// ==================================================
-// Global Variables
-// ==================================================
-WebSocketsClient webSocket;
-bool socketConnected = false;
-bool bootupReady = false;
-String authToken = "";
-String socketSid = "";
-
-// GPIO states
-struct GpioOutput
-{
-    uint8_t pin;
-    bool state;
-    uint16_t blinkCount; // For blinking
-};
-
-GpioOutput gpioOutputs[3] = {
-    {GPIO_OUTPUT_1, false, 0},
-    {GPIO_OUTPUT_2, false, 0},
-    {GPIO_OUTPUT_3, false, 0}};
-
-// Timing
-unsigned long lastStatusReport = 0;
-unsigned long lastBlinkToggle = 0;
-unsigned long lastPingTime = 0;
-bool stateChanged = false;
-
-// ==================================================
-// Function Prototypes
-// ==================================================
-void setupWiFi();
-bool authenticateDevice();
-void connectSocketIO();
-void webSocketEvent(WStype_t type, uint8_t *payload, size_t length);
-void handleSocketIOPacket(const char *packet, size_t length);
-void sendPacket(const char *type, const String &data = "");
-void emitDevData();
-void emitDevStatus(const String &status);
-void processAppCmd(const String &data);
-void setState(uint8_t index, bool state);
-void setStateAll(bool state);
-void setStateBlink(uint8_t index, uint16_t count = 5);
-void handleBlinkLogic();
+// Global variables and function implementations remain in this file.
+// Declarations are provided by `include/main.h`.
 
 // ==================================================
 // Setup
@@ -80,7 +42,7 @@ void setup()
 
     // Initialize GPIO pins as outputs
     DEBUG_PRINTLN("[GPIO] Initializing output pins...");
-    for (int i = 0; i < 3; i++)
+    for (int i = 0; i < SENSOR_COUNT; i++)
     {
         pinMode(gpioOutputs[i].pin, OUTPUT);
         gpioOutputs[i].state = false;
@@ -98,6 +60,15 @@ void setup()
 
         // Connect to Socket.IO
         connectSocketIO();
+
+#ifdef HAS_LCD_240x320
+        DEBUG_PRINTLN("[LCD] Initializing...");
+        LCD::begin();
+        LCD::fillScreen(0x07E0);                 // Green
+        LCD::drawRect(10, 10, 220, 100, 0x001F); // Blue rectangle
+        LCD::setBacklight(255);
+        DEBUG_PRINTLN("[LCD] Init done.");
+#endif
     }
     else
     {
@@ -188,17 +159,33 @@ bool authenticateDevice()
     HTTPClient https;
     https.setTimeout(HTTP_TIMEOUT);
 
-    // Build authentication URL
-    String authUrl = String(SERVER_URL) +
-                     "/api/auth?sn=" + String(DEVICE_SN) +
-                     "&secret=" + String(CLIENT_SECRET_KEY);
+    // Build authentication URL (use HTTP POST with JSON payload like Node.js example)
+    String authUrl = String(SERVER_URL) + "/api/v3/devices/auth";
+
+    // Build JSON payload (include sensorIds like Node.js example)
+    DynamicJsonDocument doc(256);
+    doc["sn"] = String(DEVICE_SN);
+    doc["client_secret_key"] = String(CLIENT_SECRET_KEY);
+
+    // sensorIds: 0x0f1234, 0x0f1235, ... (generated from GPIO outputs count)
+    const uint32_t baseSensorId = 0x0f1234;
+    size_t sensorCount = sizeof(gpioOutputs) / sizeof(gpioOutputs[0]);
+    JsonArray sensorIds = doc.createNestedArray("sensorIds");
+    for (size_t i = 0; i < sensorCount; i++)
+    {
+        sensorIds.add((uint32_t)(baseSensorId + i));
+    }
+
+    String postPayload;
+    serializeJson(doc, postPayload);
 
     DEBUG_PRINTF("[AUTH] URL: %s\n", authUrl.c_str());
+    DEBUG_PRINTF("[AUTH] Payload: %s\n", postPayload.c_str());
 
     https.begin(authUrl);
     https.addHeader("Content-Type", "application/json");
 
-    int httpCode = https.GET();
+    int httpCode = https.POST(postPayload);
 
     if (httpCode == HTTP_CODE_OK)
     {
@@ -425,7 +412,7 @@ void emitDevData()
     JsonArray content = doc["content"].to<JsonArray>();
 
     // Add GPIO states
-    for (int i = 0; i < 3; i++)
+    for (int i = 0; i < SENSOR_COUNT; i++)
     {
         content.add(gpioOutputs[i].state ? 1 : 0);
     }

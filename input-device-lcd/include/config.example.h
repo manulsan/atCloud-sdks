@@ -39,16 +39,31 @@
 // ==================================================
 // GPIO Pin Configuration (ESP32)
 // ==================================================
-// Output pins for actuators/relays/LEDs
-#define GPIO_OUTPUT_1 19
-#define GPIO_OUTPUT_2 21
-#define GPIO_OUTPUT_3 22
+// Input pins for sensors (pulled up internally)
+#define GPIO_INPUT_1 32
+#define GPIO_INPUT_2 33
+#define GPIO_INPUT_3 25
+
+// ==================================================
+// LCD Configuration (ST7789P3 240x320 — module: ESP32-32E-7789)
+// Default pins for the module (change if your wiring differs)
+// ==================================================
+#ifdef HAS_LCD_240x320
+// SPI pins (module default)
+#define LCD_SCK_PIN 14
+#define LCD_MOSI_PIN 13
+#define LCD_MISO_PIN 12
+#define LCD_CS_PIN 15
+#define LCD_DC_PIN 2
+#define LCD_RST_PIN 22
+#define LCD_BL_PIN 21
+#endif
 
 // ==================================================
 // Timing Configuration
 // ==================================================
-#define STATUS_REPORT_INTERVAL 60000 // Report status every 60s
-#define BLINK_INTERVAL 500           // Blink toggle interval (500ms)
+#define GPIO_SCAN_INTERVAL 100   // Scan GPIO every 100ms
+#define DATA_SEND_INTERVAL 60000 // Send periodic update every 60s
 
 // ==================================================
 // Debug Configuration

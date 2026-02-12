@@ -12,7 +12,7 @@
 // NOTE: This is for testing purpose only
 // For production, use credentials from atCloud365 platform
 // ==================================================
-#define DEVICE_SN "03EB023C002601000000FF"
+#define DEVICE_SN "03EB023C002601000000FC"
 #define CLIENT_SECRET_KEY "$2b$10$MTQ9AXjbWxckfbCPzVDpkOtpRrSP2z.KyRhtPvhVuaAcmyBiPZXne"
 
 // ==================================================
@@ -21,6 +21,14 @@
 #define SERVER_URL "https://atcloud365.com"
 #define SERVER_PORT 443
 #define API_PATH "/api/dev/io/"
+
+// ==================================================
+// Sensor Configuration
+// ==================================================
+// Base sensor ID and sensor count used in the authentication payload.
+// Modify these values to match your hardware configuration.
+#define BASE_SENSOR_ID 0x0f1234
+#define SENSOR_COUNT 3
 
 // ==================================================
 // Timeout Settings
@@ -35,6 +43,20 @@
 #define GPIO_OUTPUT_1 19
 #define GPIO_OUTPUT_2 21
 #define GPIO_OUTPUT_3 22
+
+// ==================================================
+// LCD Configuration (ILI9341 240x320)
+// ==================================================
+#ifdef HAS_LCD_240x320
+// SPI pins (change if needed)
+#define LCD_SCK_PIN 18
+#define LCD_MOSI_PIN 23
+#define LCD_MISO_PIN 19
+#define LCD_CS_PIN 5
+#define LCD_DC_PIN 21
+#define LCD_RST_PIN 22
+#define LCD_BL_PIN 4
+#endif
 
 // ==================================================
 // Timing Configuration

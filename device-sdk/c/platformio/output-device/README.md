@@ -13,6 +13,12 @@ ESP32를 사용한 출력 디바이스(액추에이터) 예제 프로젝트입�
 - GPIO Blink 기능
 - 상태 변경 시 플랫폼에 피드백 전송
 
+## 🧭 코딩 스타일 (Coding style)
+- **PlatformIO 프로젝트:** C++ 스타일(`.cpp`, 클래스 사용 허용). 모듈화된 C++ 코드, RAII/클래스 캡슐화 권장.
+- **목표:** 가독성 높은 C++ 코드, `.cpp` / `.h` 파일 구조 유지, `include/config.h`로 구성값 분리.
+
+> 예: 하드웨어 제어 로직은 클래스 단위로 캡슐화하고, 설정값은 `include/config.h`에 보관하세요.
+
 ## 🔧 하드웨어 요구사항
 
 - **ESP32 개발 보드** (ESP32-DevKit, ESP32-WROOM 등)
@@ -75,9 +81,17 @@ cp include/config.example.h include/config.h
 #define WIFI_PASSWORD "Your_WiFi_Password"
 
 // atCloud365 인증 정보
-#define DEVICE_SN "03EB023C002601000000FF"  // atCloud365에서 발급받은 시리얼 번호
+#define DEVICE_SN "03EB023C002601000000FC"  // atCloud365에서 발급받은 시리얼 번호
 #define CLIENT_SECRET_KEY "$2b$10$MTQ9AXjbWxckfbCPzVDpkOtpRrSP2z.KyRhtPvhVuaAcmyBiPZXne"  // 비밀 키
 ```
+
+참고: `include/config.example.h`에서 `BASE_SENSOR_ID`와 `SENSOR_COUNT`를 설정할 수 있습니다. 디바이스 인증 시 전송되는 POST JSON 예:
+
+```json
+{"sn":"<DEVICE_SN>","client_secret_key":"<SECRET>","sensorIds":[0x0f1234,0x0f1235,...]}
+```
+
+`BASE_SENSOR_ID`와 `SENSOR_COUNT`로 `sensorIds` 배열을 제어할 수 있습니다.
 
 ### 5. 빌드 및 업로드
 
@@ -337,4 +351,10 @@ MIT License - 자유롭게 사용 및 수정 가능
 
 ---
 
+### For LCD Info
+
+```txt
+https://www.alibaba.com/product-detail/Support-NerdMiner-V2-ESP32-2-8_1601486878318.html?spm=a2700.prosearch.normal_offer.d_image.7a7167afJjng1c&priceId=410b0cac363645509679cfdbf1987d5b
+```
+ 
 **Happy Coding! 🚀**

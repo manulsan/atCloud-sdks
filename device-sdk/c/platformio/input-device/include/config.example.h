@@ -12,7 +12,7 @@
 // NOTE: This is for testing purpose only
 // For production, use credentials from atCloud365 platform
 // ==================================================
-#define DEVICE_SN "03EB023C002601000000FF"
+#define DEVICE_SN "03EB023C002601000000FC"
 #define CLIENT_SECRET_KEY "$2b$10$MTQ9AXjbWxckfbCPzVDpkOtpRrSP2z.KyRhtPvhVuaAcmyBiPZXne"
 
 // ==================================================
@@ -21,6 +21,14 @@
 #define SERVER_URL "https://atcloud365.com"
 #define SERVER_PORT 443
 #define API_PATH "/api/dev/io/"
+
+// ==================================================
+// Sensor Configuration
+// ==================================================
+// Base sensor ID and sensor count used in the authentication payload.
+// Modify these values to match your hardware configuration.
+#define BASE_SENSOR_ID 0x0f1234
+#define SENSOR_COUNT 3
 
 // ==================================================
 // Timeout Settings
@@ -32,9 +40,14 @@
 // GPIO Pin Configuration (ESP32)
 // ==================================================
 // Input pins for sensors (pulled up internally)
-#define GPIO_INPUT_1 19
-#define GPIO_INPUT_2 21
-#define GPIO_INPUT_3 22
+#define GPIO_INPUT_1 32
+#define GPIO_INPUT_2 33
+#define GPIO_INPUT_3 25
+
+// ==================================================
+// LCD Configuration removed from this project — moved to
+// `device-sdk/c/platformio/input-device-lcd` (ST7789P3 driver/demo)
+// ==================================================
 
 // ==================================================
 // Timing Configuration

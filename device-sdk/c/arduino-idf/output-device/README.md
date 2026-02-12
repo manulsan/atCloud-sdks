@@ -62,9 +62,23 @@ Arduino IDE에서 `output-device.ino` 파일 열기
 ```cpp
 #define WIFI_SSID "Your_WiFi_SSID"
 #define WIFI_PASSWORD "Your_WiFi_Password"
-#define DEVICE_SN "03EB023C002601000000FF"
+#define DEVICE_SN "03EB023C002601000000FC"
 #define CLIENT_SECRET_KEY "$2b$10$MTQ9AXjbWxckfbCPzVDpkOtpRrSP2z.KyRhtPvhVuaAcmyBiPZXne"
 ```
+
+참고: `config.example.h`에 `BASE_SENSOR_ID` 및 `SENSOR_COUNT`가 추가되어 있으며, 장치는 인증 시 다음과 같은 POST JSON을 전송합니다:
+
+```json
+{"sn":"<DEVICE_SN>","client_secret_key":"<SECRET>","sensorIds":[0x0f1234,0x0f1235,...]}
+```
+
+## 🧭 코딩 스타일 (Coding style)
+- **Arduino‑IDE / Arduino‑ESP32 (Arduino‑IDF) 프로젝트:** C 스타일 기반으로 코딩합니다 (`.ino` / `.c` / `.h`).
+- **권장:** 단순·명확한 절차적 코드, 헤더 가드 사용, 설정은 `config.h`에 보관합니다.
+
+> 참고: 복잡한 로직은 `.c/.h` 모듈로 분리해 테스트와 재사용성을 높이세요.
+
+`BASE_SENSOR_ID`/`SENSOR_COUNT`를 변경하면 전송되는 `sensorIds` 배열이 바뀝니다.
 
 ### 5. 업로드
 

@@ -11,6 +11,12 @@ ESP32를 사용한 입력 디바이스(센서) 예제 프로젝트입니다. Ard
 - GPIO 상태 변경 감지 시 즉시 전송
 - 변경 없을 시 1분 주기 전송
 
+## 🧭 코딩 스타일 (Coding style)
+- **Arduino‑IDE / Arduino‑ESP32 (Arduino‑IDF) 프로젝트:** C 스타일 기반으로 작성하세요 (`.ino` / `.c` / `.h`).
+- **권장 관행:** 절차적 구조, 명확한 전역/로컬 분리, 헤더 가드 사용, 최소한의 C++ 기능 사용 권장.
+
+> 예: 주요 로직은 스케치(`.ino`)에 두되, 재사용 가능한 모듈은 `.c`/`.h`로 분리하고 `config.h`에서 설정을 관리하세요.
+
 ## 🔧 하드웨어 요구사항
 
 - **ESP32 개발 보드** (ESP32-DevKit, ESP32-WROOM 등)
@@ -96,9 +102,17 @@ cp config.example.h config.h
 #define WIFI_PASSWORD "Your_WiFi_Password"
 
 // atCloud365 인증 정보
-#define DEVICE_SN "03EB023C002601000000FF"
+#define DEVICE_SN "03EB023C002601000000FC"
 #define CLIENT_SECRET_KEY "$2b$10$MTQ9AXjbWxckfbCPzVDpkOtpRrSP2z.KyRhtPvhVuaAcmyBiPZXne"
 ```
+
+참고: `config.example.h`에 `BASE_SENSOR_ID` 및 `SENSOR_COUNT`를 추가했습니다. 인증 요청은 POST JSON이며 예시는 다음과 같습니다:
+
+```json
+{"sn":"<DEVICE_SN>","client_secret_key":"<SECRET>","sensorIds":[0x0f1234,0x0f1235,...]}
+```
+
+`BASE_SENSOR_ID`와 `SENSOR_COUNT`로 `sensorIds` 배열을 제어할 수 있습니다.
 
 ### 6. 보드 설정 및 업로드
 
