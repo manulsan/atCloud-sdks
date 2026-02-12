@@ -96,7 +96,7 @@ cp config.example.h config.h
 #define WIFI_PASSWORD "Your_WiFi_Password"
 
 // atCloud365 인증 정보
-#define DEVICE_SN "03EB023C0026010000000F"
+#define DEVICE_SN "03EB023C002601000000FF"
 #define CLIENT_SECRET_KEY "$2b$10$MTQ9AXjbWxckfbCPzVDpkOtpRrSP2z.KyRhtPvhVuaAcmyBiPZXne"
 ```
 

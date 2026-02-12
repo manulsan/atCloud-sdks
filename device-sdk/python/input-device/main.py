@@ -16,6 +16,7 @@ Date: 2026-02-12
 import sys
 import time
 import json
+import random
 import requests
 import socketio
 from typing import List, Dict, Any, Optional
@@ -72,6 +73,10 @@ def debug_print(message: str):
 def get_current_time() -> float:
     """Get current time in seconds."""
     return time.time()
+
+def get_random(min_val: int, max_val: int) -> int:
+    """Return a random integer between min_val and max_val inclusive."""
+    return random.randint(min_val, max_val)
 
 # ==================================================
 # HTTP Authentication
@@ -219,6 +224,10 @@ def emit_dev_data():
         return
     
     try:
+        # Simulate new sensor values before sending (index-based ranges)
+        for i in range(len(sensor_values)):
+            sensor_values[i] = get_random(i * 10, i * 10 + 10)
+        
         # Prepare data payload
         payload = {
             "content": sensor_values
@@ -386,7 +395,7 @@ def main():
     
     # Step 2: Connect to Socket.IO
     try:
-        socket_url = f"{SERVER_URL}:{SERVER_PORT}"
+        socket_url = SERVER_URL
         
         debug_print(f"\n[SOCKET] Connecting to {socket_url}")
         debug_print(f"[SOCKET] Path: {API_PATH}")

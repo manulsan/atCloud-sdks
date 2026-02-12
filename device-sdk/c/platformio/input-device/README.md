@@ -69,7 +69,7 @@ cp include/config.example.h include/config.h
 #define WIFI_PASSWORD "Your_WiFi_Password"
 
 // atCloud365 인증 정보
-#define DEVICE_SN "03EB023C0026010000000F"  // atCloud365에서 발급받은 시리얼 번호
+#define DEVICE_SN "03EB023C002601000000FF"  // atCloud365에서 발급받은 시리얼 번호
 #define CLIENT_SECRET_KEY "$2b$10$MTQ9AXjbWxckfbCPzVDpkOtpRrSP2z.KyRhtPvhVuaAcmyBiPZXne"  // 비밀 키
 ```
 

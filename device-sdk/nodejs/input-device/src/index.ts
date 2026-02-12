@@ -22,7 +22,7 @@ import axios from "axios";
 // ==================================================
 const DEVICE_SN = process.env.DEVICE_SN;
 const CLIENT_SECRET_KEY = process.env.CLIENT_SECRET_KEY;
-const SERVER_URL = process.env.SERVER_URL || "http://localhost";
+const SERVER_URL = process.env.SERVER_URL || "https://atcloud365.com";
 const API_PATH = process.env.API_PATH || "/api/dev/io/";
 const DEVICE_AUTH_URI = process.env.DEVICE_AUTH_URI;
 const SENSOR_COUNT = parseInt(process.env.SENSOR_COUNT || "3");
@@ -130,25 +130,25 @@ async function fetchDeviceAuthToken(
 // Data Upload Function
 // ==================================================
 function uploadData(socket: Socket) {
-  if (!socket.connected) {
-    console.log("⚠️ Socket not connected, skipping data upload");
-    return;
-  }
-
-  isStatusSent = !isStatusSent;
-
-  if (isStatusSent) {
-    // Time for data upload
-    for (let i = 0; i < sensorValues.length; i++) {
-      sensorValues[i] = getRandom(0, 100);
+  try {
+    if (!socket.connected) {
+      console.log("⚠️ Socket not connected, skipping data upload");
+      return;
     }
+    if (isStatusSent) {
+      for (let i = 0; i < sensorValues.length; i++)
+        sensorValues[i] = getRandom(i * 100, i * 100 + 100); // Simulate new sensor value
 
-    const data = { content: sensorValues };
-    socket.emit("dev-data", data);
-    console.log("📤 tx data>", data);
-  } else {
-    socket.emit("dev-status", "status-ok");
-    console.log("📤 tx status>", "status-ok");
+      const data = { content: sensorValues };
+      socket.emit("dev-data", data);
+      console.log("📤 tx data>", data);
+    } else {
+      socket.emit("dev-status", "status-ok");
+      console.log("📤 tx status>", "status-ok");
+    }
+    isStatusSent = !isStatusSent;
+  } catch (error) {
+    console.error("❌ Data upload error:", error);
   }
 }
 
@@ -162,10 +162,8 @@ function handleAppCmd(socket: Socket, data: any) {
     const { customCmd, fieldIndex, fieldValue } = data.operation;
 
     if (customCmd === "sync") {
-      console.log("🔄 Sync command received");
       uploadData(socket);
     } else if (customCmd === "reboot") {
-      console.log("🔄 Reboot command received - exiting...");
       socket.emit("dev-status", "Rebooting");
       setTimeout(() => process.exit(0), 1000);
     } else {

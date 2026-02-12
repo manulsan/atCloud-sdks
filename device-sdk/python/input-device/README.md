@@ -61,12 +61,12 @@ cp config.example.py config.py
 `config.py` 수정:
 
 ```python
-DEVICE_SN = "03EB023C0026010000000F"
+DEVICE_SN = "03EB023C002601000000FF"
 CLIENT_SECRET_KEY = "$2b$10$MTQ9AXjbWxckfbCPzVDpkOtpRrSP2z.KyRhtPvhVuaAcmyBiPZXne"
 
-SERVER_URL = "http://localhost"
-SERVER_PORT = 10020
-DEVICE_AUTH_URI = "http://localhost:10030/api/v3/devices/auth"
+SERVER_URL = "https://atcloud365.com"
+# SERVER_PORT = 10020
+DEVICE_AUTH_URI = "https://atcloud365.com/api/v3/devices/auth"
 
 # 센서 ID 배열 (중요!)
 SENSOR_IDS = [0x0f1234, 0x0f1235, 0x0f1236]

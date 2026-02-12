@@ -22,8 +22,7 @@ import axios from "axios";
 // ==================================================
 const DEVICE_SN = process.env.DEVICE_SN;
 const CLIENT_SECRET_KEY = process.env.CLIENT_SECRET_KEY;
-const SERVER_URL = process.env.SERVER_URL || "http://localhost";
-const SERVER_PORT = process.env.SERVER_PORT || "10020";
+const SERVER_URL = process.env.SERVER_URL || "https://atcloud365.com";
 const API_PATH = process.env.API_PATH || "/api/dev/io/";
 const DEVICE_AUTH_URI = process.env.DEVICE_AUTH_URI;
 const SENSOR_COUNT = parseInt(process.env.SENSOR_COUNT || "3");
@@ -257,10 +256,12 @@ function handleAppCmd(socket: Socket, data: any) {
         fieldValue >= 0
       ) {
         setOutputState(fieldIndex, fieldValue > 0);
+        displayStatus();
       }
     } else if (customCmd === "output-all") {
       if (fieldValue >= 0) {
         setAllOutputs(fieldValue > 0);
+        displayStatus();
       }
     } else if (customCmd === "blinkLed") {
       if (fieldIndex >= 0 && fieldIndex < outputPins.length) {
@@ -308,7 +309,7 @@ function handleAppCmd(socket: Socket, data: any) {
   }
 
   // Socket.IO Connection
-  const socketUrl = `${SERVER_URL}:${SERVER_PORT}`;
+  const socketUrl = `${SERVER_URL}`;
   console.log("\n[SOCKET] Connecting to Socket.IO...");
   console.log(`[SOCKET] URL: ${socketUrl}`);
   console.log(`[SOCKET] Path: ${API_PATH}`);

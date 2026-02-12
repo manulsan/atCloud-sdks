@@ -47,14 +47,14 @@ cp .env.example .env
 `.env` 수정:
 
 ```env
-DEVICE_SN=03EB023C0026010000000F
+DEVICE_SN=03EB023C002601000000FF
 CLIENT_SECRET_KEY=$2b$10$MTQ9AXjbWxckfbCPzVDpkOtpRrSP2z.KyRhtPvhVuaAcmyBiPZXne
 
-SERVER_URL=http://localhost
-SERVER_PORT=10020
+SERVER_URL=https://atcloud365.com
+# SERVER_PORT=10020
 API_PATH=/api/dev/io/
 
-DEVICE_AUTH_URI=http://localhost:10030/api/v3/devices/auth
+DEVICE_AUTH_URI=https://atcloud365.com/api/v3/devices/auth
 
 SENSOR_COUNT=3
 DATA_UPLOAD_INTERVAL=10

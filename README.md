@@ -173,7 +173,7 @@ module.exports = {
 
 모든 디바이스는 다음 정보가 필요합니다:
 
-1. **DEVICE_SN**: 디바이스 고유 시리얼 번호 (예: `03EB023C0026010000000F`)
+1. **DEVICE_SN**: 디바이스 고유 시리얼 번호 (예: `03EB023C002601000000FF`)
 2. **CLIENT_SECRET_KEY**: bcrypt 해시된 비밀 키 (예: `$2b$10$MTQ9AXj...`)
 3. **SERVER_URL**: API 엔드포인트 (기본값: `https://api.atcloud365.com`)
 4. **TIMEOUT**: 통신 타임아웃 (기본값: `30`초)

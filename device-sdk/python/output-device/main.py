@@ -442,7 +442,7 @@ def main():
     
     # Step 2: Connect to Socket.IO
     try:
-        socket_url = f"{SERVER_URL}:{SERVER_PORT}"
+        socket_url = SERVER_URL
         
         debug_print(f"\n[SOCKET] Connecting to {socket_url}")
         debug_print(f"[SOCKET] Path: {API_PATH}")

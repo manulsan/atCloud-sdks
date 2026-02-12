@@ -62,7 +62,7 @@ Arduino IDE에서 `output-device.ino` 파일 열기
 ```cpp
 #define WIFI_SSID "Your_WiFi_SSID"
 #define WIFI_PASSWORD "Your_WiFi_Password"
-#define DEVICE_SN "03EB023C0026010000000F"
+#define DEVICE_SN "03EB023C002601000000FF"
 #define CLIENT_SECRET_KEY "$2b$10$MTQ9AXjbWxckfbCPzVDpkOtpRrSP2z.KyRhtPvhVuaAcmyBiPZXne"
 ```
 
