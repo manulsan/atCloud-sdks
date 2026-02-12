@@ -19,6 +19,7 @@ import json
 import random
 import requests
 import socketio
+from urllib.parse import urlencode
 from typing import List, Dict, Any, Optional
 import threading
 import signal
@@ -395,7 +396,14 @@ def main():
     
     # Step 2: Connect to Socket.IO
     try:
-        socket_url = SERVER_URL
+        # Build socket URL with query string (python-socketio connect doesn't accept 'query' kw)
+        query_params = {
+            "sn": DEVICE_SN,
+            "clientType": "device",
+            "sensorIds": json.dumps(SENSOR_IDS),
+            "clientVersion": "V4"
+        }
+        socket_url = f"{SERVER_URL}?{urlencode(query_params)}"
         
         debug_print(f"\n[SOCKET] Connecting to {socket_url}")
         debug_print(f"[SOCKET] Path: {API_PATH}")
@@ -408,13 +416,7 @@ def main():
             transports=["websocket", "polling"],
             headers={},
             wait_timeout=10,
-            namespaces=["/"],
-            query={
-                "sn": DEVICE_SN,
-                "clientType": "device",
-                "sensorIds": json.dumps(SENSOR_IDS),
-                "clientVersion": "V4"
-            }
+            namespaces=["/"]
         )
         
         debug_print("[SOCKET] Connection initiated...")

@@ -41,11 +41,19 @@ python3 -m venv venv
 source venv/bin/activate
 ```
 
+> 자동 설치 스크립트 사용(권장):
+>
+> - Linux/macOS: `./install.sh`
+> - Windows (PowerShell): `.\install.ps1` (PowerShell 실행정책에 따라 `Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned` 필요할 수 있음)
+> - Windows (cmd): `install.bat`
+
 ### 3. 의존성 설치
 
 ```bash
 pip install -r requirements.txt
 ```
+
+> 참고: 서버에서 WebSocket 전송을 요구하는 경우 `websocket-client` 패키지가 필요합니다. `pip install websocket-client` 또는 `requirements.txt`에 포함되어 있는지 확인하세요.
 
 ### 4. 설정 파일 생성
 
