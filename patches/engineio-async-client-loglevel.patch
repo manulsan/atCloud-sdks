@@ -1,0 +1,95 @@
+*** a/Lib/site-packages/engineio/async_client.py
+--- b/Lib/site-packages/engineio/async_client.py
+@@
+-import asyncio
+-from http.cookies import SimpleCookie
+-import inspect
+-import signal
+-import ssl
+-import threading
++import asyncio
++from http.cookies import SimpleCookie
++import inspect
++import signal
++import ssl
++import threading
++import logging
++import os
++
++LOG_LEVEL = getattr(logging, os.getenv("ENGINEIO_LOG_LEVEL", "INFO").upper(), logging.INFO)
+@@
+-        self.logger.info('Attempting polling connection to ' + self.base_url)
++        self.logger.log(LOG_LEVEL, 'Attempting polling connection to ' + self.base_url)
+@@
+-        self.logger.info(
+-            'Polling connection accepted with ' + str(open_packet.data))
++        self.logger.log(LOG_LEVEL,
++            'Polling connection accepted with ' + str(open_packet.data))
+@@
+-            self.logger.info(
+-                'Attempting WebSocket upgrade to ' + websocket_url)
++            self.logger.log(LOG_LEVEL,
++                'Attempting WebSocket upgrade to ' + websocket_url)
+@@
+-            self.logger.info(
+-                'Attempting WebSocket connection to ' + websocket_url)
++            self.logger.log(LOG_LEVEL,
++                'Attempting WebSocket connection to ' + websocket_url)
+@@
+-            self.logger.info('WebSocket upgrade was successful')
++            self.logger.log(LOG_LEVEL, 'WebSocket upgrade was successful')
+@@
+-                self.logger.info(
+-                'WebSocket connection accepted with ' + str(open_packet.data))
++                self.logger.log(LOG_LEVEL,
++                'WebSocket connection accepted with ' + str(open_packet.data))
+@@
+-            self.logger.info(
+-                'Read loop: WebSocket connection was closed, aborting')
++            self.logger.log(LOG_LEVEL,
++                'Read loop: WebSocket connection was closed, aborting')
+@@
+-                self.logger.info(
+-                    'Unexpected error receiving packet: "%s", aborting',
+-                    str(e))
++                self.logger.log(LOG_LEVEL,
++                    'Unexpected error receiving packet: "%s", aborting',
++                    str(e))
+@@
+-                self.logger.info(
+-                    'Unexpected error decoding packet: "%s", aborting', str(e))
++                self.logger.log(LOG_LEVEL,
++                    'Unexpected error decoding packet: "%s", aborting', str(e))
+@@
+-        self.logger.info('Waiting for write loop task to end')
++        self.logger.log(LOG_LEVEL, 'Waiting for write loop task to end')
+@@
+-        self.logger.info('Exiting read loop task')
++        self.logger.log(LOG_LEVEL, 'Exiting read loop task')
+@@
+-            self.logger.info(
+-                'Sending polling GET request to ' + self.base_url)
++            self.logger.log(LOG_LEVEL,
++                'Sending polling GET request to ' + self.base_url)
+@@
+-            self.logger.info('HTTP %s request to %s failed with error %s.',
+-                             method, url, exc)
++            self.logger.log(LOG_LEVEL, 'HTTP %s request to %s failed with error %s.',
++                             method, url, exc)
+@@
+-            self.logger.info('Waiting for write loop task to end')
++            self.logger.log(LOG_LEVEL,
++            'Waiting for write loop task to end')
+@@
+-        self.logger.info('Exiting read loop task')
++        self.logger.log(LOG_LEVEL, 'Exiting read loop task')
+@@
+-                    self.logger.info(
+-                    'Write loop: WebSocket connection was closed, '
+-                        'aborting')
++                    self.logger.log(LOG_LEVEL,
++                    'Write loop: WebSocket connection was closed, '
++                        'aborting')
+@@
+-        self.logger.info('Exiting write loop task')
++        self.logger.log(LOG_LEVEL, 'Exiting write loop task')

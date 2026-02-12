@@ -54,6 +54,9 @@ pip install -r requirements.txt
 ```
 
 > 참고: 서버에서 WebSocket 전송을 요구하는 경우 `websocket-client` 패키지가 필요합니다. `pip install websocket-client` 또는 `requirements.txt`에 포함되어 있는지 확인하세요.
+>
+> 또한 `engineio`의 로그 레벨을 환경변수로 제어할 수 있습니다: `ENGINEIO_LOG_LEVEL=DEBUG` 또는 `ENGINEIO_LOG_LEVEL=INFO`.
+> (패치된 엔진.IO 클라이언트가 필요합니다 — venv 내 `engineio/async_client.py`에 `LOG_LEVEL` 정의가 있으면 동작합니다.)
 
 ### 4. 설정 파일 생성
 
@@ -70,7 +73,7 @@ cp config.example.py config.py
 `config.py` 수정:
 
 ```python
-DEVICE_SN = "03EB023C002601000000FF"
+DEVICE_SN = "03EB023C002601000000FE"
 CLIENT_SECRET_KEY = "$2b$10$MTQ9AXjbWxckfbCPzVDpkOtpRrSP2z.KyRhtPvhVuaAcmyBiPZXne"
 
 SERVER_URL = "https://atcloud365.com"

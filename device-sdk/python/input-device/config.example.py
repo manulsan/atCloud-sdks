@@ -10,7 +10,7 @@ NEVER commit config.py to version control!
 # NOTE: This is for testing purpose only
 # For production, use credentials from atCloud365 platform
 # ==================================================
-DEVICE_SN = "03EB023C002601000000FF"
+DEVICE_SN = "03EB023C002601000000FE"
 CLIENT_SECRET_KEY = "$2b$10$MTQ9AXjbWxckfbCPzVDpkOtpRrSP2z.KyRhtPvhVuaAcmyBiPZXne"
 
 # ==================================================
