@@ -26,6 +26,9 @@
 
 // Globals and function implementations remain in this file; declarations moved to `include/main.h`.
 
+// SocketIO client instance (used by main)
+SocketIOClient socketIo;
+
 // ==================================================
 // Setup
 // ==================================================
@@ -56,8 +59,17 @@ void setup()
     {
         DEBUG_PRINTLN("[AUTH] Authentication successful!");
 
-        // Connect to Socket.IO
-        connectSocketIO();
+        // Connect to Socket.IO (use SocketIOClient)
+        socketIo.setPacketCallback(handleSocketIOPacket);
+        socketIo.setConnectCallback([]()
+                                    {
+            DEBUG_PRINTLN("[SOCKET] SocketIO connected (callback)");
+            socketConnected = true; });
+        socketIo.setDisconnectCallback([]()
+                                       {
+            DEBUG_PRINTLN("[SOCKET] SocketIO disconnected (callback)");
+            socketConnected = false; });
+        socketIo.begin(authToken);
 
 #ifdef HAS_LCD_240x320
         DEBUG_PRINTLN("[LCD] Initializing...");
@@ -86,8 +98,8 @@ void setup()
 // ==================================================
 void loop()
 {
-    // Handle WebSocket events
-    webSocket.loop();
+    // Handle Socket.IO events
+    socketIo.loop();
 
 #ifndef USE_SIMULATED_GPIO_VALUES
     // Scan GPIO inputs periodically
@@ -240,68 +252,16 @@ bool authenticateDevice()
 // ==================================================
 void connectSocketIO()
 {
-    DEBUG_PRINTLN("\n[SOCKET] Connecting to Socket.IO...");
-
-    // Extract domain from SERVER_URL
-    String domain = String(SERVER_URL);
-    domain.replace("https://", "");
-    domain.replace("http://", "");
-
-    // Build Socket.IO path with query parameters
-    String socketPath = String(API_PATH) +
-                        "?sn=" + String(DEVICE_SN) +
-                        "&token=" + authToken +
-                        "&EIO=4&transport=websocket";
-
-    DEBUG_PRINTF("[SOCKET] Domain: %s\n", domain.c_str());
-    DEBUG_PRINTF("[SOCKET] Port: %d\n", SERVER_PORT);
-    DEBUG_PRINTF("[SOCKET] Path: %s\n", socketPath.c_str());
-
-    // Connect via SSL
-    webSocket.beginSSL(domain.c_str(), SERVER_PORT, socketPath.c_str());
-    webSocket.onEvent(webSocketEvent);
-    webSocket.setReconnectInterval(5000);
-
-    DEBUG_PRINTLN("[SOCKET] Connection initiated...");
+    // connect using the SocketIOClient wrapper (authToken must be set)
+    socketIo.begin(authToken);
+    socketIo.setReconnectInterval(5000);
+    DEBUG_PRINTLN("[SOCKET] Connection initiated via SocketIOClient");
 }
 
 // ==================================================
 // WebSocket Event Handler
 // ==================================================
-void webSocketEvent(WStype_t type, uint8_t *payload, size_t length)
-{
-    switch (type)
-    {
-    case WStype_DISCONNECTED:
-        DEBUG_PRINTLN("[SOCKET] Disconnected!");
-        socketConnected = false;
-        break;
-
-    case WStype_CONNECTED:
-        DEBUG_PRINTLN("[SOCKET] WebSocket connected");
-        break;
-
-    case WStype_TEXT:
-    {
-        char buffer[1024];
-        size_t len = (length < sizeof(buffer) - 1) ? length : sizeof(buffer) - 1;
-        memcpy(buffer, payload, len);
-        buffer[len] = '\0';
-
-        DEBUG_PRINTF("[SOCKET] Received: %s\n", buffer);
-        handleSocketIOPacket(buffer, len);
-        lastPingTime = millis();
-    }
-    break;
-
-    case WStype_ERROR:
-        DEBUG_PRINTLN("[SOCKET] Error occurred");
-        break;
-
-    default:
-        break;
-    }
-}
+// WebSocket event handler moved into SocketIOClient class; main registers callbacks if needed.
 
 // ==================================================
 // Socket.IO Packet Handler
@@ -388,6 +348,32 @@ void handleSocketIOPacket(const char *packet, size_t length)
                         {
                             DEBUG_PRINTLN("[SOCKET] Server confirmed connection!");
                         }
+                        //  ["app-cmd",{"operation":{"customCmd":"clear-call-bell","fieldIndex":2,"fieldValue":0}}]
+                        else if (eventName == "app-cmd" && arr.size() > 1)
+                        {
+                            JsonObject eventPayload = arr[1].as<JsonObject>();
+                            if (eventPayload.containsKey("operation"))
+                            {
+                                JsonObject operation = eventPayload["operation"].as<JsonObject>();
+                                if (operation.containsKey("customCmd"))
+                                {
+                                    String customCmd = operation["customCmd"].as<String>();
+                                    DEBUG_PRINTF("[SOCKET] Custom Command: %s\n", customCmd.c_str());
+                                    if (customCmd == "clear-call-bell")
+                                    {
+                                        uint8_t fieldIndex = operation["fieldIndex"] | 0;
+                                        uint8_t fieldValue = operation["fieldValue"] | 0;
+                                        DEBUG_PRINTF("[SOCKET] clear-call-bell - Index: %d, Value: %d\n", fieldIndex, fieldValue);
+                                        if (fieldIndex < SENSOR_COUNT && fieldValue >= 0)
+                                            gpioInputs[fieldIndex]
+                                                .state = fieldValue == 1 ? LOW : HIGH;
+                                        gpioInputs[fieldIndex].previousState = gpioInputs[fieldIndex].state;
+                                        dataUpdateRequired = true;
+                                    }
+                                    // Handle custom commands as needed
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -401,17 +387,12 @@ void handleSocketIOPacket(const char *packet, size_t length)
 }
 
 // ==================================================
-// Send Socket.IO Packet
+// Send Socket.IO Packet (forward to socketIo)
 // ==================================================
 void sendPacket(const char *type, const String &data)
 {
-    String packet = String(type);
-    if (data.length() > 0)
-    {
-        packet += data;
-    }
-    webSocket.sendTXT(packet);
-    DEBUG_PRINTF("[SOCKET] Sent: %s\n", packet.c_str());
+    socketIo.sendPacket(type, data);
+    DEBUG_PRINTF("[SOCKET] Sent: %s%s\n", type, data.c_str());
 }
 
 // ==================================================
@@ -434,7 +415,8 @@ void emitDevData()
     // Socket.IO event format: 42["event-name", data]
     String packet = "42[\"dev-data\"," + jsonData + "]";
 
-    webSocket.sendTXT(packet);
+    // send via SocketIO wrapper
+    sendPacket(packet.c_str());
     DEBUG_PRINTF("[DATA] Emitted: %s\n", packet.c_str());
 }
 
@@ -446,7 +428,7 @@ void emitDevStatus(const String &status)
     // Socket.IO event format: 42["event-name", "data"]
     String packet = "42[\"dev-status\",\"" + status + "\"]";
 
-    webSocket.sendTXT(packet);
+    sendPacket(packet.c_str());
     DEBUG_PRINTF("[STATUS] Emitted: %s\n", packet.c_str());
 }
 

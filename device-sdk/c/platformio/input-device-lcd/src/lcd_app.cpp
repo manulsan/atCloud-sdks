@@ -11,7 +11,7 @@ static void drawFilledRect(int x, int y, int w, int h, uint16_t color)
 }
 
 // Very small block font for "Hello" (same style as original)
-static void lcdDrawText(const char *text, int x, int y, uint16_t color, uint8_t scale = 2)
+static void lcdDrawTextLocal(const char *text, int x, int y, uint16_t color, uint8_t scale = 2)
 {
     int cursorX = x;
     for (const char *p = text; *p; ++p)
@@ -43,21 +43,26 @@ static void lcdDrawText(const char *text, int x, int y, uint16_t color, uint8_t 
     }
 }
 
-void setup()
+// Public (file-local) app init/loop used by higher-level code if needed
+static void lcdAppInit()
 {
     Serial.begin(115200);
     delay(100);
 
-    Serial.println("[LCD-DEMO] Initializing LCD...");
+    Serial.println("[LCD-APP] Initializing LCD...");
     LCD::begin();
     LCD::fillScreen(0x001F);                 // blue background
     LCD::drawRect(10, 10, 220, 100, 0xF800); // red rectangle
     LCD::setBacklight(255);
 
-    // show demo text
-    lcdDrawText("Hello", 60, 40, 0xFFFF, 2);
+    // show demo text (use local renderer to avoid symbol collisions)
+    lcdDrawTextLocal("Hello", 60, 40, 0xFFFF, 2);
 
-    Serial.println("[LCD-DEMO] Done.");
+    Serial.println("[LCD-APP] Done.");
 }
 
-void loop() {}
+static void lcdAppLoop() {}
+
+// Keep local static renderer only; the global `lcdDrawText` used elsewhere remains
+// implemented in `src/main.cpp`. If you want `lcdApp` to expose a public draw
+// method, we can add an `LCDApp` class in a follow-up change.

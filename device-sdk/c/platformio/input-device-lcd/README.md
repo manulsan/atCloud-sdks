@@ -11,7 +11,7 @@ Small standalone project containing only the LCD driver/demo for ST7789P3 (ESP32
 - Build & upload using `esp32dev` environment.
 
 ## Demo
-- `src/lcd_demo.cpp` — initializes the ST7789P3 and draws a demo "Hello" on screen.
+- `src/lcd_app.cpp` — initializes the ST7789P3 and draws a demo "Hello" on screen.
 
 ## Pin mapping (module default)
 - `LCD_SCK_PIN` = IO14

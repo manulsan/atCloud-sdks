@@ -2,7 +2,7 @@
 #define MAIN_H
 
 #include <Arduino.h>
-#include <WebSocketsClient.h>
+#include "socketio_client.h"
 #include "config.h"
 
 // GPIO state structure
@@ -14,7 +14,7 @@ struct GpioState
 };
 
 // Shared globals (defined in main.cpp)
-extern WebSocketsClient webSocket;
+extern SocketIOClient socketIo;
 extern bool socketConnected;
 extern bool bootupReady;
 extern String authToken;
@@ -35,5 +35,8 @@ void sendPacket(const char *type, const String &data = "");
 void emitDevData();
 void emitDevStatus(const String &status);
 bool scanGpioInputs();
+
+// LCD helper (prototype)
+void lcdDrawText(const char *text, int x, int y, uint16_t color, uint8_t scale = 2);
 
 #endif // MAIN_H
