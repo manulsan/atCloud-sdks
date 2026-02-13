@@ -16,19 +16,88 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <HTTPClient.h>
-#include <WebSocketsClient.h>
 #include <ArduinoJson.h>
-#include <SPI.h>
+#include <time.h>
 #include "config.h"
 #include "main.h"
 #ifdef HAS_LCD_240x320
 #include "lcd.h"
+#include "lcd_app.h"
 #endif
 
 // Globals and function implementations remain in this file; declarations moved to `include/main.h`.
 
 // SocketIO client instance (used by main)
 SocketIOClient socketIo;
+
+#ifdef USE_SIMULATED_GPIO_VALUES
+static inline void simulateGpioInputs()
+{
+    static bool seeded = false;
+    if (!seeded)
+    {
+        randomSeed(micros());
+        seeded = true;
+    }
+    uint32_t bits = (uint32_t)random(0, 1 << SENSOR_COUNT);
+    // Avoid all-off or all-on so the UI shows variation
+    if (bits == 0)
+        bits = 1;
+    else if (bits == (uint32_t)((1 << SENSOR_COUNT) - 1))
+        bits &= ~(1 << (SENSOR_COUNT - 1));
+
+    for (int i = 0; i < SENSOR_COUNT; i++)
+    {
+        gpioInputs[i].state = (bits & (1u << i)) ? LOW : HIGH; // LOW = active
+        delay(i);
+    }
+}
+#endif
+
+#ifdef HAS_LCD_240x320
+static void collectUiState(UiSnapshot &ui)
+{
+    ui.wifiConnected = WiFi.status() == WL_CONNECTED;
+    ui.wifiRssi = ui.wifiConnected ? WiFi.RSSI() : 0;
+    ui.socketConnected = socketConnected;
+
+#ifdef USE_SIMULATED_GPIO_VALUES
+    simulateGpioInputs();
+#endif
+
+    for (int i = 0; i < SENSOR_COUNT; i++)
+    {
+        // INPUT_PULLUP wiring: LOW means active/pressed
+        ui.sensors[i] = (gpioInputs[i].state == LOW);
+    }
+
+    static bool ntpInit = false;
+    if (!ntpInit)
+    {
+        const long gmtOffset = 9 * 3600; // KST (UTC+9)
+        const int daylightOffset = 0;
+        configTime(gmtOffset, daylightOffset, "pool.ntp.org", "time.nist.gov");
+        ntpInit = true;
+    }
+
+    struct tm timeinfo;
+    if (getLocalTime(&timeinfo, 100))
+    {
+        char dateBuf[16];
+        char timeBuf[12];
+        strftime(dateBuf, sizeof(dateBuf), "%Y-%m-%d", &timeinfo);
+        strftime(timeBuf, sizeof(timeBuf), "%H:%M:%S", &timeinfo);
+        ui.dateText = String(dateBuf);
+        ui.timeText = String(timeBuf);
+    }
+    else
+    {
+        ui.dateText = "--";
+        ui.timeText = "--:--:--";
+    }
+    ui.ip = WiFi.localIP();
+}
+#endif
 
 // ==================================================
 // Setup
@@ -76,103 +145,13 @@ void setup()
         DEBUG_PRINTLN("[LCD] Initializing and running visual test...");
         LCD::begin();
         LCD::setBacklight(255);
-        LCD::setRotation(0);
-
-        // Flash primary colors so you can visually confirm panel + color order
-        LCD::fillScreen(0xF800); // Red
-        delay(400);
-        LCD::fillScreen(0x07E0); // Green
-        delay(400);
-        LCD::fillScreen(0x001F); // Blue
-        delay(400);
-        LCD::fillScreen(0x0000); // Clear
-        delay(200);
-
-        // Draw a test pattern and label that remains on-screen
+        LCD::setRotation(2); // 180-degree rotation to match panel mounting
         LCD::fillScreen(0x0000);
-        for (int x = 0; x < 240; x += 6)
-            for (int y = 0; y < 320; y += 6)
-                LCD::drawPixel(x, y, (uint16_t)((x ^ y) & 0xFFFF));
 
-        LCD::drawRect(8, 8, 224, 120, 0xFFFF);
-        lcdDrawText("LCD TEST", 30, 30, 0xFFFF, 2);
-        lcdDrawText("Rotation: 0", 30, 60, 0x07E0, 1);
-
-        // Diagnostic: report pin states to serial so you can verify wiring
-        DEBUG_PRINTF("[LCD-TEST] Pins: SCK=%d MOSI=%d DC=%d CS=%d RST=%d BL=%d\n",
-                     LCD_SCK_PIN, LCD_MOSI_PIN, LCD_DC_PIN, LCD_CS_PIN, LCD_RST_PIN, LCD_BL_PIN);
-        DEBUG_PRINTF("[LCD-TEST] BL state=%d RST state=%d DC state=%d\n",
-                     digitalRead(LCD_BL_PIN), digitalRead(LCD_RST_PIN), digitalRead(LCD_DC_PIN));
-
-        DEBUG_PRINTLN("[LCD] Visual test done - check display and backlight.");
-
-        // --- RAW SPI smoke test (bypass LovyanGFX) -------------------------------
-        // This writes a small 16x16 red square using direct SPI commands so we can
-        // verify wiring & basic panel responsiveness even if the higher-level
-        // driver doesn't render. Remove after debugging.
-        DEBUG_PRINTLN("[LCD-RAW] Starting raw SPI smoke test...");
-        {
-            // configure pins for raw SPI
-            pinMode(LCD_CS_PIN, OUTPUT);
-            pinMode(LCD_DC_PIN, OUTPUT);
-            pinMode(LCD_RST_PIN, OUTPUT);
-            digitalWrite(LCD_CS_PIN, HIGH);
-
-            // Toggle RST manually
-            digitalWrite(LCD_RST_PIN, LOW);
-            delay(10);
-            digitalWrite(LCD_RST_PIN, HIGH);
-            delay(10);
-
-            SPI.begin(LCD_SCK_PIN, LCD_MISO_PIN, LCD_MOSI_PIN, LCD_CS_PIN);
-            SPI.beginTransaction(SPISettings(1000000, MSBFIRST, SPI_MODE0));
-
-            auto cmd = [&](uint8_t c)
-            { digitalWrite(LCD_DC_PIN, LOW); digitalWrite(LCD_CS_PIN, LOW); SPI.transfer(c); digitalWrite(LCD_CS_PIN, HIGH); };
-            auto data = [&](const uint8_t *d, size_t n)
-            { digitalWrite(LCD_DC_PIN, HIGH); digitalWrite(LCD_CS_PIN, LOW); for (size_t i=0;i<n;i++) SPI.transfer(d[i]); digitalWrite(LCD_CS_PIN, HIGH); };
-
-            cmd(0x01); // SWRESET
-            delay(150);
-            cmd(0x11); // SLPOUT
-            delay(120);
-            cmd(0x3A); // COLMOD
-            {
-                uint8_t v = 0x05;
-                data(&v, 1);
-            } // 16-bit
-            delay(10);
-            cmd(0x29); // DISPON
-            delay(10);
-
-            // Prepare to write a small 16x16 block at (0,0)
-            cmd(0x2A); // CASET
-            {
-                uint8_t d[] = {0x00, 0x00, 0x00, 0x0F};
-                data(d, 4);
-            }
-            cmd(0x2B); // PASET
-            {
-                uint8_t d[] = {0x00, 0x00, 0x00, 0x0F};
-                data(d, 4);
-            }
-            cmd(0x2C); // RAMWR
-
-            // send 16x16 pixels of red (RGB565 0xF800 -> 0xF8,0x00)
-            digitalWrite(LCD_DC_PIN, HIGH);
-            digitalWrite(LCD_CS_PIN, LOW);
-            for (int i = 0; i < 16 * 16; i++)
-            {
-                SPI.transfer(0xF8);
-                SPI.transfer(0x00);
-            }
-            digitalWrite(LCD_CS_PIN, HIGH);
-
-            SPI.endTransaction();
-            SPI.end();
-
-            DEBUG_PRINTLN("[LCD-RAW] raw SPI test complete (16x16 red block sent)");
-        }
+        // Draw the operational dashboard (WiFi, Socket, Sensors, Clock)
+        UiSnapshot uiState;
+        collectUiState(uiState);
+        lcdUiRender(uiState);
 #endif
     }
     else
@@ -207,12 +186,7 @@ void loop()
         if ((millis() - lastDataSend >= DATA_SEND_INTERVAL))
         {
 #ifdef USE_SIMULATED_GPIO_VALUES
-            // Simulate input value changes for testing
-            for (int i = 0; i < SENSOR_COUNT; i++)
-            {
-                gpioInputs[i].state = millis() % 2 == 1 ? HIGH : LOW;
-                delay(i);
-            }
+            simulateGpioInputs();
 #endif
             dataUpdateRequired = true;
         }
@@ -224,15 +198,18 @@ void loop()
             dataUpdateRequired = false;
             lastDataSend = millis();
         }
-
-        // Simple heartbeat check
-        if ((millis() - lastPingTime > 70000))
-        {
-            DEBUG_PRINTLN("[SOCKET] Connection timeout, reconnecting...");
-            socketConnected = false;
-            connectSocketIO();
-        }
     }
+
+#ifdef HAS_LCD_240x320
+    static unsigned long lastUiRefresh = 0;
+    if ((millis() - lastUiRefresh > 1000) || dataUpdateRequired)
+    {
+        UiSnapshot uiState;
+        collectUiState(uiState);
+        lcdUiRender(uiState);
+        lastUiRefresh = millis();
+    }
+#endif
 }
 
 // ==================================================
@@ -449,7 +426,7 @@ void handleSocketIOPacket(const char *packet, size_t length)
                                 {
                                     String customCmd = operation["customCmd"].as<String>();
                                     DEBUG_PRINTF("[SOCKET] Custom Command: %s\n", customCmd.c_str());
-                                    if (customCmd == "clear-call-bell")
+                                    if (customCmd == "clear-call-bell" || customCmd == "output")
                                     {
                                         uint8_t fieldIndex = operation["fieldIndex"] | 0;
                                         uint8_t fieldValue = operation["fieldValue"] | 0;

@@ -1,7 +1,8 @@
+#include "config.h"
+
 #ifdef HAS_LCD_240x320
 
 #include "lcd.h"
-#include "config.h"
 #include <LovyanGFX.hpp>
 
 // LovyanGFX-based implementation that preserves the existing LCD:: API.
@@ -61,10 +62,14 @@ void LCD::begin()
         delay(20);
         digitalWrite(LCD_RST_PIN, HIGH);
         delay(20);
+#if DEBUG_ENABLED
         Serial.println("[LCD] Manual RST toggle done");
+#endif
     }
 
+#if DEBUG_ENABLED
     Serial.println("[LCD] Initializing LovyanGFX panel (freq_write=20MHz)");
+#endif
     // Initialize panel
     display.init();
 
@@ -85,7 +90,9 @@ void LCD::begin()
         pinMode(LCD_BL_PIN, INPUT_PULLUP);
         int bl = digitalRead(LCD_BL_PIN);
         pinMode(LCD_BL_PIN, OUTPUT);
+#if DEBUG_ENABLED
         Serial.printf("[LCD-DIAG] BL pin read back = %d\n", bl);
+#endif
     }
 }
 
@@ -110,6 +117,11 @@ void LCD::drawPixel(int16_t x, int16_t y, uint16_t color)
 void LCD::fillScreen(uint16_t color)
 {
     display.fillScreen(color);
+}
+
+void LCD::fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color)
+{
+    display.fillRect(x, y, w, h, color);
 }
 
 void LCD::drawRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color)

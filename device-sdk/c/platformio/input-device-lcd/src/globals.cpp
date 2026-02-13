@@ -13,5 +13,4 @@ GpioState gpioInputs[SENSOR_COUNT] = {
 
 unsigned long lastGpioScan = 0;
 unsigned long lastDataSend = 0;
-unsigned long lastPingTime = 0;
 bool dataUpdateRequired = true; // send update on boot

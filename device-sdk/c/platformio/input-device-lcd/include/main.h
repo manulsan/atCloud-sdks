@@ -22,14 +22,12 @@ extern String socketSid;
 extern GpioState gpioInputs[];
 extern unsigned long lastGpioScan;
 extern unsigned long lastDataSend;
-extern unsigned long lastPingTime;
 extern bool dataUpdateRequired;
 
 // Function prototypes
 void setupWiFi();
 bool authenticateDevice();
 void connectSocketIO();
-void webSocketEvent(WStype_t type, uint8_t *payload, size_t length);
 void handleSocketIOPacket(const char *packet, size_t length);
 void sendPacket(const char *type, const String &data = "");
 void emitDevData();
@@ -38,8 +36,5 @@ bool scanGpioInputs();
 
 // LCD helper (prototype)
 void lcdDrawText(const char *text, int x, int y, uint16_t color, uint8_t scale = 2);
-
-// Generic drawing helper (moved from main.cpp - single global implementation)
-void drawFilledRect(int x, int y, int w, int h, uint16_t color);
 
 #endif // MAIN_H
