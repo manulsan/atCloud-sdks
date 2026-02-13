@@ -39,4 +39,7 @@ bool scanGpioInputs();
 // LCD helper (prototype)
 void lcdDrawText(const char *text, int x, int y, uint16_t color, uint8_t scale = 2);
 
+// Generic drawing helper (moved from main.cpp - single global implementation)
+void drawFilledRect(int x, int y, int w, int h, uint16_t color);
+
 #endif // MAIN_H

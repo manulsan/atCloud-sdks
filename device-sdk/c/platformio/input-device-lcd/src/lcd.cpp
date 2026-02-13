@@ -2,176 +2,119 @@
 
 #include "lcd.h"
 #include "config.h"
-#include <SPI.h>
+#include <LovyanGFX.hpp>
 
-// ST7789P3 command set (subset)
-#define ST7789_SWRESET 0x01
-#define ST7789_SLPOUT 0x11
-#define ST7789_DISPON 0x29
-#define ST7789_CASET 0x2A
-#define ST7789_PASET 0x2B
-#define ST7789_RAMWR 0x2C
-#define ST7789_MADCTL 0x36
-#define ST7789_COLMOD 0x3A
+// LovyanGFX-based implementation that preserves the existing LCD:: API.
+// This acts as a thin wrapper so existing code doesn't need to change.
 
-// Display dimensions for ST7789P3 (assumed 240x320 module)
-static const uint16_t ST_WIDTH = 240;
-static const uint16_t ST_HEIGHT = 320;
-
-void LCD::writeCommand(uint8_t cmd)
+// Custom minimal LGFX config for our ST7789 module and custom pins
+class LGFX_Config : public lgfx::LGFX_Device
 {
-    digitalWrite(LCD_DC_PIN, LOW);
-    digitalWrite(LCD_CS_PIN, LOW);
-    SPI.transfer(cmd);
-    digitalWrite(LCD_CS_PIN, HIGH);
-}
+public:
+    LGFX_Config()
+    {
+        // SPI bus configuration
+        auto bus_cfg = _bus_spi.config();
+        bus_cfg.spi_host = VSPI_HOST;  // use VSPI or HSPI as desired
+        bus_cfg.freq_write = 10000000; // 10MHz (safer for some modules)
+        bus_cfg.freq_read = 4000000;
+        bus_cfg.pin_sclk = LCD_SCK_PIN;
+        bus_cfg.pin_mosi = LCD_MOSI_PIN;
+        bus_cfg.pin_miso = LCD_MISO_PIN;
+        bus_cfg.pin_dc = LCD_DC_PIN;
+        _bus_spi.config(bus_cfg);
 
-void LCD::writeData(uint8_t data)
-{
-    digitalWrite(LCD_DC_PIN, HIGH);
-    digitalWrite(LCD_CS_PIN, LOW);
-    SPI.transfer(data);
-    digitalWrite(LCD_CS_PIN, HIGH);
-}
+        // Attach SPI bus to the panel (missing before: without this, LovyanGFX draw calls are no-ops)
+        _panel_st7789.setBus(&_bus_spi);
 
-void LCD::writeDataBuffer(const uint8_t *buf, size_t len)
-{
-    digitalWrite(LCD_DC_PIN, HIGH);
-    digitalWrite(LCD_CS_PIN, LOW);
-    for (size_t i = 0; i < len; ++i)
-        SPI.transfer(buf[i]);
-    digitalWrite(LCD_CS_PIN, HIGH);
-}
+        // Panel configuration (ST7789)
+        auto panel_cfg = _panel_st7789.config();
+        panel_cfg.pin_cs = LCD_CS_PIN;
+        panel_cfg.pin_rst = LCD_RST_PIN;
+        panel_cfg.pin_busy = -1;
+        panel_cfg.panel_width = 240;
+        panel_cfg.panel_height = 320;
+        panel_cfg.offset_rotation = 0;
+        panel_cfg.offset_x = 0;
+        panel_cfg.offset_y = 0;
+        // Use standard RGB order; BGR + swapped bytes caused incorrect colors on this panel
+        panel_cfg.rgb_order = false;
+        _panel_st7789.config(panel_cfg);
 
-void LCD::setAddrWindow(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1)
-{
-    // Column address set
-    writeCommand(ST7789_CASET);
-    writeData(x0 >> 8);
-    writeData(x0 & 0xFF);
-    writeData(x1 >> 8);
-    writeData(x1 & 0xFF);
+        setPanel(&_panel_st7789);
+    }
 
-    // Row address set
-    writeCommand(ST7789_PASET);
-    writeData(y0 >> 8);
-    writeData(y0 & 0xFF);
-    writeData(y1 >> 8);
-    writeData(y1 & 0xFF);
+private:
+    lgfx::Bus_SPI _bus_spi;
+    lgfx::Panel_ST7789P3 _panel_st7789;
+};
 
-    // Write to RAM
-    writeCommand(ST7789_RAMWR);
-}
+static LGFX_Config display;
 
 void LCD::begin()
 {
-    pinMode(LCD_CS_PIN, OUTPUT);
-    pinMode(LCD_DC_PIN, OUTPUT);
-    pinMode(LCD_RST_PIN, OUTPUT);
+    // If available, perform a manual hardware reset sequence first (some modules need it)
+    if (LCD_RST_PIN >= 0)
+    {
+        pinMode(LCD_RST_PIN, OUTPUT);
+        digitalWrite(LCD_RST_PIN, LOW);
+        delay(20);
+        digitalWrite(LCD_RST_PIN, HIGH);
+        delay(20);
+        Serial.println("[LCD] Manual RST toggle done");
+    }
+
+    Serial.println("[LCD] Initializing LovyanGFX panel (freq_write=20MHz)");
+    // Initialize panel
+    display.init();
+
+    // Leave byte order as-is; swapping plus BGR was causing blue-only output
+    display.setSwapBytes(false);
+
+    // ensure backlight PWM initialized
     pinMode(LCD_BL_PIN, OUTPUT);
-
-    // Initialize SPI with specified pins
-    SPI.begin(LCD_SCK_PIN, LCD_MISO_PIN, LCD_MOSI_PIN, LCD_CS_PIN);
-    digitalWrite(LCD_CS_PIN, HIGH);
-
-    // hardware reset
-    digitalWrite(LCD_RST_PIN, HIGH);
-    delay(5);
-    digitalWrite(LCD_RST_PIN, LOW);
-    delay(20);
-    digitalWrite(LCD_RST_PIN, HIGH);
-    delay(150);
-
-    // Software reset
-    writeCommand(ST7789_SWRESET);
-    delay(150);
-
-    // Sleep out
-    writeCommand(ST7789_SLPOUT);
-    delay(120);
-
-    // Interface pixel format: 16 bits/pixel (RGB565)
-    writeCommand(ST7789_COLMOD);
-    writeData(0x55);
-    delay(10);
-
-    // Memory data access control (orientation + RGB order)
-    // 0x00 - RGB default; adjust if colors/orientation are wrong for your module
-    writeCommand(ST7789_MADCTL);
-    writeData(0x00);
-    delay(10);
-
-    // Display ON
-    writeCommand(ST7789_DISPON);
-    delay(100);
-
-    // set backlight on (use LEDC PWM)
     ledcSetup(0, 5000, 8);
     ledcAttachPin(LCD_BL_PIN, 0);
     ledcWrite(0, 255);
+    // also drive BL pin high directly to ensure backlight (useful for modules with simple BL pin)
+    digitalWrite(LCD_BL_PIN, HIGH);
+
+    // brief probe-read of pins for diagnostics (mirrors the serial output in main)
+    if (LCD_BL_PIN >= 0)
+    {
+        pinMode(LCD_BL_PIN, INPUT_PULLUP);
+        int bl = digitalRead(LCD_BL_PIN);
+        pinMode(LCD_BL_PIN, OUTPUT);
+        Serial.printf("[LCD-DIAG] BL pin read back = %d\n", bl);
+    }
 }
 
 void LCD::setBacklight(uint8_t level)
 {
-    // level: 0..255
     ledcWrite(0, level);
+    digitalWrite(LCD_BL_PIN, level > 0 ? HIGH : LOW);
+}
+
+void LCD::setRotation(uint8_t rot)
+{
+    // LovyanGFX uses 0-3 for rotation
+    display.setRotation(rot & 3);
 }
 
 void LCD::drawPixel(int16_t x, int16_t y, uint16_t color)
 {
-    if (x < 0 || x >= ST_WIDTH || y < 0 || y >= ST_HEIGHT)
-        return;
-
-    setAddrWindow(x, y, x, y);
-    writeData(color >> 8);
-    writeData(color & 0xFF);
+    // LovyanGFX expects 16-bit RGB565 color; pass through
+    display.drawPixel(x, y, color);
 }
 
 void LCD::fillScreen(uint16_t color)
 {
-    const uint16_t w = ST_WIDTH;
-    const uint16_t h = ST_HEIGHT;
-    setAddrWindow(0, 0, w - 1, h - 1);
-
-    // send pixel data
-    digitalWrite(LCD_DC_PIN, HIGH);
-    digitalWrite(LCD_CS_PIN, LOW);
-    for (uint32_t i = 0; i < (uint32_t)w * h; ++i)
-    {
-        SPI.transfer(color >> 8);
-        SPI.transfer(color & 0xFF);
-    }
-    digitalWrite(LCD_CS_PIN, HIGH);
+    display.fillScreen(color);
 }
 
 void LCD::drawRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color)
 {
-    // Clip rect to display bounds
-    if (x < 0)
-    {
-        w += x;
-        x = 0;
-    }
-    if (y < 0)
-    {
-        h += y;
-        y = 0;
-    }
-    if (x + w > ST_WIDTH)
-        w = ST_WIDTH - x;
-    if (y + h > ST_HEIGHT)
-        h = ST_HEIGHT - y;
-
-    for (int16_t i = 0; i < w; ++i)
-    {
-        drawPixel(x + i, y, color);
-        drawPixel(x + i, y + h - 1, color);
-    }
-    for (int16_t i = 0; i < h; ++i)
-    {
-        drawPixel(x, y + i, color);
-        drawPixel(x + w - 1, y + i, color);
-    }
+    display.drawRect(x, y, w, h, color);
 }
 
 #endif // HAS_LCD_240x320

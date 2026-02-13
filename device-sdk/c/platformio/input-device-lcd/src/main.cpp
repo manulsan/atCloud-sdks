@@ -18,6 +18,7 @@
 #include <HTTPClient.h>
 #include <WebSocketsClient.h>
 #include <ArduinoJson.h>
+#include <SPI.h>
 #include "config.h"
 #include "main.h"
 #ifdef HAS_LCD_240x320
@@ -72,17 +73,106 @@ void setup()
         socketIo.begin(authToken);
 
 #ifdef HAS_LCD_240x320
-        DEBUG_PRINTLN("[LCD] Initializing...");
+        DEBUG_PRINTLN("[LCD] Initializing and running visual test...");
         LCD::begin();
-        LCD::fillScreen(0x001F);                 // Blue
-        LCD::drawRect(10, 10, 220, 100, 0xF800); // Red rectangle
         LCD::setBacklight(255);
+        LCD::setRotation(0);
 
-        // Draw "Hello" centered-ish inside the red rectangle
-        // (uses a small block-font renderer implemented below)
-        lcdDrawText("Hello", 60, 40, 0xFFFF, 2);
+        // Flash primary colors so you can visually confirm panel + color order
+        LCD::fillScreen(0xF800); // Red
+        delay(400);
+        LCD::fillScreen(0x07E0); // Green
+        delay(400);
+        LCD::fillScreen(0x001F); // Blue
+        delay(400);
+        LCD::fillScreen(0x0000); // Clear
+        delay(200);
 
-        DEBUG_PRINTLN("[LCD] Init done.");
+        // Draw a test pattern and label that remains on-screen
+        LCD::fillScreen(0x0000);
+        for (int x = 0; x < 240; x += 6)
+            for (int y = 0; y < 320; y += 6)
+                LCD::drawPixel(x, y, (uint16_t)((x ^ y) & 0xFFFF));
+
+        LCD::drawRect(8, 8, 224, 120, 0xFFFF);
+        lcdDrawText("LCD TEST", 30, 30, 0xFFFF, 2);
+        lcdDrawText("Rotation: 0", 30, 60, 0x07E0, 1);
+
+        // Diagnostic: report pin states to serial so you can verify wiring
+        DEBUG_PRINTF("[LCD-TEST] Pins: SCK=%d MOSI=%d DC=%d CS=%d RST=%d BL=%d\n",
+                     LCD_SCK_PIN, LCD_MOSI_PIN, LCD_DC_PIN, LCD_CS_PIN, LCD_RST_PIN, LCD_BL_PIN);
+        DEBUG_PRINTF("[LCD-TEST] BL state=%d RST state=%d DC state=%d\n",
+                     digitalRead(LCD_BL_PIN), digitalRead(LCD_RST_PIN), digitalRead(LCD_DC_PIN));
+
+        DEBUG_PRINTLN("[LCD] Visual test done - check display and backlight.");
+
+        // --- RAW SPI smoke test (bypass LovyanGFX) -------------------------------
+        // This writes a small 16x16 red square using direct SPI commands so we can
+        // verify wiring & basic panel responsiveness even if the higher-level
+        // driver doesn't render. Remove after debugging.
+        DEBUG_PRINTLN("[LCD-RAW] Starting raw SPI smoke test...");
+        {
+            // configure pins for raw SPI
+            pinMode(LCD_CS_PIN, OUTPUT);
+            pinMode(LCD_DC_PIN, OUTPUT);
+            pinMode(LCD_RST_PIN, OUTPUT);
+            digitalWrite(LCD_CS_PIN, HIGH);
+
+            // Toggle RST manually
+            digitalWrite(LCD_RST_PIN, LOW);
+            delay(10);
+            digitalWrite(LCD_RST_PIN, HIGH);
+            delay(10);
+
+            SPI.begin(LCD_SCK_PIN, LCD_MISO_PIN, LCD_MOSI_PIN, LCD_CS_PIN);
+            SPI.beginTransaction(SPISettings(1000000, MSBFIRST, SPI_MODE0));
+
+            auto cmd = [&](uint8_t c)
+            { digitalWrite(LCD_DC_PIN, LOW); digitalWrite(LCD_CS_PIN, LOW); SPI.transfer(c); digitalWrite(LCD_CS_PIN, HIGH); };
+            auto data = [&](const uint8_t *d, size_t n)
+            { digitalWrite(LCD_DC_PIN, HIGH); digitalWrite(LCD_CS_PIN, LOW); for (size_t i=0;i<n;i++) SPI.transfer(d[i]); digitalWrite(LCD_CS_PIN, HIGH); };
+
+            cmd(0x01); // SWRESET
+            delay(150);
+            cmd(0x11); // SLPOUT
+            delay(120);
+            cmd(0x3A); // COLMOD
+            {
+                uint8_t v = 0x05;
+                data(&v, 1);
+            } // 16-bit
+            delay(10);
+            cmd(0x29); // DISPON
+            delay(10);
+
+            // Prepare to write a small 16x16 block at (0,0)
+            cmd(0x2A); // CASET
+            {
+                uint8_t d[] = {0x00, 0x00, 0x00, 0x0F};
+                data(d, 4);
+            }
+            cmd(0x2B); // PASET
+            {
+                uint8_t d[] = {0x00, 0x00, 0x00, 0x0F};
+                data(d, 4);
+            }
+            cmd(0x2C); // RAMWR
+
+            // send 16x16 pixels of red (RGB565 0xF800 -> 0xF8,0x00)
+            digitalWrite(LCD_DC_PIN, HIGH);
+            digitalWrite(LCD_CS_PIN, LOW);
+            for (int i = 0; i < 16 * 16; i++)
+            {
+                SPI.transfer(0xF8);
+                SPI.transfer(0x00);
+            }
+            digitalWrite(LCD_CS_PIN, HIGH);
+
+            SPI.endTransaction();
+            SPI.end();
+
+            DEBUG_PRINTLN("[LCD-RAW] raw SPI test complete (16x16 red block sent)");
+        }
 #endif
     }
     else
@@ -432,61 +522,8 @@ void emitDevStatus(const String &status)
     DEBUG_PRINTF("[STATUS] Emitted: %s\n", packet.c_str());
 }
 
-// --- Simple LCD drawing helpers (block font) -------------------------------
-static void drawFilledRect(int x, int y, int w, int h, uint16_t color)
-{
-    for (int ix = 0; ix < w; ix++)
-        for (int iy = 0; iy < h; iy++)
-            LCD::drawPixel(x + ix, y + iy, color);
-}
-
-static void lcdDrawCharBlock(int x, int y, char c, uint16_t color, uint8_t scale)
-{
-    // Very small block-style glyphs for ASCII characters used in "Hello".
-    switch (c)
-    {
-    case 'H':
-        drawFilledRect(x, y, 3 * scale, 16 * scale, color);
-        drawFilledRect(x + 8 * scale, y, 3 * scale, 16 * scale, color);
-        drawFilledRect(x + 3 * scale, y + 6 * scale, 5 * scale, 3 * scale, color);
-        break;
-
-    case 'e':
-        drawFilledRect(x, y + 2 * scale, 10 * scale, 3 * scale, color);            // top bar
-        drawFilledRect(x, y + 2 * scale, 3 * scale, 12 * scale, color);            // left column
-        drawFilledRect(x + 3 * scale, y + 8 * scale, 7 * scale, 3 * scale, color); // middle bar
-        drawFilledRect(x, y + 14 * scale, 10 * scale, 3 * scale, color);           // bottom bar
-        break;
-
-    case 'l':
-        drawFilledRect(x + 3 * scale, y, 3 * scale, 16 * scale, color);
-        break;
-
-    case 'o':
-        LCD::drawRect(x, y, 10 * scale, 16 * scale, color);
-        drawFilledRect(x + 2 * scale, y + 2 * scale, 6 * scale, 12 * scale, color);
-        break;
-
-    case ' ':
-        // leave gap
-        break;
-
-    default:
-        // fallback: small box for unknown characters
-        LCD::drawRect(x, y, 6 * scale, 10 * scale, color);
-        break;
-    }
-}
-
-void lcdDrawText(const char *text, int x, int y, uint16_t color, uint8_t scale)
-{
-    int cursorX = x;
-    for (const char *p = text; *p; ++p)
-    {
-        lcdDrawCharBlock(cursorX, y, *p, color, scale);
-        cursorX += 12 * scale; // advance (letter width + spacing)
-    }
-}
+// (moved) LCD drawing helpers have been relocated to `src/lcd_app.cpp`.
+// Prototypes remain in `include/main.h` so callers in this file stay valid.
 
 // ==================================================
 // Scan GPIO Inputs
