@@ -21,9 +21,23 @@
 #include <ArduinoJson.h>
 #include "config.h"
 #include "main.h"
-#ifdef HAS_LCD_240x320
-#include "lcd.h"
-#endif
+
+// Global definitions
+WebSocketsClient webSocket;
+bool socketConnected = false;
+bool bootupReady = false;
+String authToken = "";
+String socketSid = "";
+
+GpioOutput gpioOutputs[] = {
+    {GPIO_OUTPUT_1, false, 0},
+    {GPIO_OUTPUT_2, false, 0},
+    {GPIO_OUTPUT_3, false, 0}};
+
+unsigned long lastStatusReport = 0;
+unsigned long lastBlinkToggle = 0;
+unsigned long lastPingTime = 0;
+bool stateChanged = true; // emit initial status
 
 // Global variables and function implementations remain in this file.
 // Declarations are provided by `include/main.h`.
@@ -163,18 +177,14 @@ bool authenticateDevice()
     String authUrl = String(SERVER_URL) + "/api/v3/devices/auth";
 
     // Build JSON payload (include sensorIds like Node.js example)
-    DynamicJsonDocument doc(256);
+    JsonDocument doc;
     doc["sn"] = String(DEVICE_SN);
     doc["client_secret_key"] = String(CLIENT_SECRET_KEY);
 
     // sensorIds: 0x0f1234, 0x0f1235, ... (generated from GPIO outputs count)
-    const uint32_t baseSensorId = 0x0f1234;
-    size_t sensorCount = sizeof(gpioOutputs) / sizeof(gpioOutputs[0]);
-    JsonArray sensorIds = doc.createNestedArray("sensorIds");
-    for (size_t i = 0; i < sensorCount; i++)
-    {
-        sensorIds.add((uint32_t)(baseSensorId + i));
-    }
+    JsonArray sensorIds = doc["sensorIds"].to<JsonArray>();
+    for (size_t i = 0; i < SENSOR_COUNT; i++)
+        sensorIds.add((uint32_t)(BASE_SENSOR_ID + i));
 
     String postPayload;
     serializeJson(doc, postPayload);
@@ -196,7 +206,7 @@ bool authenticateDevice()
         JsonDocument doc;
         DeserializationError error = deserializeJson(doc, payload);
 
-        if (!error && doc.containsKey("token"))
+        if (!error && doc["token"].is<const char *>())
         {
             authToken = doc["token"].as<String>();
             DEBUG_PRINTLN("[AUTH] Token received successfully");
@@ -229,10 +239,22 @@ void connectSocketIO()
     domain.replace("https://", "");
     domain.replace("http://", "");
 
-    // Build Socket.IO path with query parameters
+    // Build sensorIds JSON string
+    String sensorIds = "[";
+    for (size_t i = 0; i < SENSOR_COUNT; i++)
+    {
+        sensorIds += String((uint32_t)(BASE_SENSOR_ID + i));
+        if (i + 1 < SENSOR_COUNT)
+            sensorIds += ",";
+    }
+    sensorIds += "]";
+
+    // Build Socket.IO path with query parameters (match Node.js client)
     String socketPath = String(API_PATH) +
                         "?sn=" + String(DEVICE_SN) +
-                        "&token=" + authToken +
+                        "&clientType=device" +
+                        "&clientVersion=V4" +
+                        "&sensorIds=" + sensorIds +
                         "&EIO=4&transport=websocket";
 
     DEBUG_PRINTF("[SOCKET] Domain: %s\n", domain.c_str());
@@ -306,14 +328,15 @@ void handleSocketIOPacket(const char *packet, size_t length)
 
         if (!error)
         {
-            if (doc.containsKey("sid"))
+            if (doc["sid"].is<const char *>())
             {
                 socketSid = doc["sid"].as<String>();
                 DEBUG_PRINTF("[SOCKET] SID: %s\n", socketSid.c_str());
             }
 
-            // Send connect acknowledgment
-            sendPacket("40");
+            // Send connect acknowledgment with auth token payload
+            String connectPayload = String("{\"token\":\"") + authToken + "\"}";
+            sendPacket("40", connectPayload);
             socketConnected = true;
 
             // Send bootup status
@@ -460,19 +483,19 @@ void processAppCmd(const String &data)
     int16_t index = -1;
     int8_t value = -1;
 
-    if (doc.containsKey("operation"))
+    if (doc["operation"].is<JsonObject>())
     {
         JsonObject operation = doc["operation"];
 
-        if (operation.containsKey("customCmd"))
+        if (operation["customCmd"].is<const char *>())
         {
             cmd = operation["customCmd"].as<String>();
         }
-        if (operation.containsKey("fieldIndex"))
+        if (operation["fieldIndex"].is<int>())
         {
             index = operation["fieldIndex"].as<int16_t>();
         }
-        if (operation.containsKey("fieldValue"))
+        if (operation["fieldValue"].is<int>())
         {
             value = operation["fieldValue"].as<int8_t>();
         }
@@ -537,7 +560,7 @@ void processAppCmd(const String &data)
 // ==================================================
 void setState(uint8_t index, bool state)
 {
-    if (index < 3)
+    if (index < SENSOR_COUNT)
     {
         gpioOutputs[index].state = state;
         digitalWrite(gpioOutputs[index].pin, state ? HIGH : LOW);
@@ -554,7 +577,7 @@ void setState(uint8_t index, bool state)
 // ==================================================
 void setStateAll(bool state)
 {
-    for (int i = 0; i < 3; i++)
+    for (int i = 0; i < SENSOR_COUNT; i++)
     {
         setState(i, state);
     }
@@ -566,7 +589,7 @@ void setStateAll(bool state)
 // ==================================================
 void setStateBlink(uint8_t index, uint16_t count)
 {
-    if (index < 3)
+    if (index < SENSOR_COUNT)
     {
         gpioOutputs[index].blinkCount = count * 2; // *2 for on+off cycles
         DEBUG_PRINTF("[GPIO] Pin %d blink started (count: %d)\n",
@@ -586,7 +609,7 @@ void handleBlinkLogic()
 
     lastBlinkToggle = millis();
 
-    for (int i = 0; i < 3; i++)
+    for (int i = 0; i < SENSOR_COUNT; i++)
     {
         if (gpioOutputs[i].blinkCount > 0)
         {

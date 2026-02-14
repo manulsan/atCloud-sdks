@@ -4,6 +4,7 @@
 # 보안: 실제 설정 파일 제외 (중요!)
 # ============================================
 config.h
+**/include/config.h
 config.py
 config.js
 .env

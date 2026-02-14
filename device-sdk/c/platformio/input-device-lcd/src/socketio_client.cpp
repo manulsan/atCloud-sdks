@@ -15,9 +15,21 @@ void SocketIOClient::begin(const String &token)
     domain.replace("https://", "");
     domain.replace("http://", "");
 
+    // Build sensorIds JSON string like Node.js client
+    String sensorIds = "[";
+    for (size_t i = 0; i < SENSOR_COUNT; i++)
+    {
+        sensorIds += String((uint32_t)(BASE_SENSOR_ID + i));
+        if (i + 1 < SENSOR_COUNT)
+            sensorIds += ",";
+    }
+    sensorIds += "]";
+
     String socketPath = String(API_PATH) +
                         "?sn=" + String(DEVICE_SN) +
-                        "&token=" + token +
+                        "&clientType=device" +
+                        "&clientVersion=V4" +
+                        "&sensorIds=" + sensorIds +
                         "&EIO=4&transport=websocket";
 
     ws.beginSSL(domain.c_str(), SERVER_PORT, socketPath.c_str());
@@ -64,7 +76,7 @@ void SocketIOClient::wsEvent(WStype_t type, uint8_t *payload, size_t length)
         break;
 
     case WStype_ERROR:
-        // fallthrough — no-op for now
+        DEBUG_PRINTLN("[SOCKET] WebSocket error");
         break;
 
     default:

@@ -25,34 +25,7 @@
 #include "lcd_app.h"
 #endif
 
-// Globals and function implementations remain in this file; declarations moved to `include/main.h`.
-
-// SocketIO client instance (used by main)
 SocketIOClient socketIo;
-
-#ifdef USE_SIMULATED_GPIO_VALUES
-static inline void simulateGpioInputs()
-{
-    static bool seeded = false;
-    if (!seeded)
-    {
-        randomSeed(micros());
-        seeded = true;
-    }
-    uint32_t bits = (uint32_t)random(0, 1 << SENSOR_COUNT);
-    // Avoid all-off or all-on so the UI shows variation
-    if (bits == 0)
-        bits = 1;
-    else if (bits == (uint32_t)((1 << SENSOR_COUNT) - 1))
-        bits &= ~(1 << (SENSOR_COUNT - 1));
-
-    for (int i = 0; i < SENSOR_COUNT; i++)
-    {
-        gpioInputs[i].state = (bits & (1u << i)) ? LOW : HIGH; // LOW = active
-        delay(i);
-    }
-}
-#endif
 
 #ifdef HAS_LCD_240x320
 static void collectUiState(UiSnapshot &ui)
@@ -61,15 +34,8 @@ static void collectUiState(UiSnapshot &ui)
     ui.wifiRssi = ui.wifiConnected ? WiFi.RSSI() : 0;
     ui.socketConnected = socketConnected;
 
-#ifdef USE_SIMULATED_GPIO_VALUES
-    simulateGpioInputs();
-#endif
-
     for (int i = 0; i < SENSOR_COUNT; i++)
-    {
-        // INPUT_PULLUP wiring: LOW means active/pressed
         ui.sensors[i] = (gpioInputs[i].state == LOW);
-    }
 
     static bool ntpInit = false;
     if (!ntpInit)
@@ -120,8 +86,6 @@ void setup()
         gpioInputs[i].previousState = gpioInputs[i].state;
         DEBUG_PRINTF("  GPIO %d: %d\n", gpioInputs[i].pin, gpioInputs[i].state);
     }
-
-    // Connect to WiFi
     setupWiFi();
 
     // GET Authentication Token
@@ -132,9 +96,7 @@ void setup()
         // Connect to Socket.IO (use SocketIOClient)
         socketIo.setPacketCallback(handleSocketIOPacket);
         socketIo.setConnectCallback([]()
-                                    {
-            DEBUG_PRINTLN("[SOCKET] SocketIO connected (callback)");
-            socketConnected = true; });
+                                    { DEBUG_PRINTLN("[SOCKET] SocketIO connected (callback)"); });
         socketIo.setDisconnectCallback([]()
                                        {
             DEBUG_PRINTLN("[SOCKET] SocketIO disconnected (callback)");
@@ -167,29 +129,19 @@ void setup()
 // ==================================================
 void loop()
 {
-    // Handle Socket.IO events
     socketIo.loop();
 
-#ifndef USE_SIMULATED_GPIO_VALUES
     // Scan GPIO inputs periodically
     if (millis() - lastGpioScan >= GPIO_SCAN_INTERVAL)
     {
+        scanGpioInputs(); // if (scanGpioInputs())     dataUpdateRequired = true;
         lastGpioScan = millis();
-        if (scanGpioInputs())
-            dataUpdateRequired = true;
     }
-#endif
-
     if (socketConnected)
     {
         // Send periodic update even if no change
         if ((millis() - lastDataSend >= DATA_SEND_INTERVAL))
-        {
-#ifdef USE_SIMULATED_GPIO_VALUES
-            simulateGpioInputs();
-#endif
             dataUpdateRequired = true;
-        }
 
         // Send data when required
         if (dataUpdateRequired)
@@ -200,8 +152,12 @@ void loop()
         }
     }
 
+    //----------------------------------------------------------
+    // LCD UI Update (only if we have a display and data changed)
+    //----------------------------------------------------------
 #ifdef HAS_LCD_240x320
     static unsigned long lastUiRefresh = 0;
+
     if ((millis() - lastUiRefresh > 1000) || dataUpdateRequired)
     {
         UiSnapshot uiState;
@@ -263,15 +219,14 @@ bool authenticateDevice()
     String authUrl = String(SERVER_URL) + "/api/v3/devices/auth";
 
     // Build JSON payload (include sensorIds like Node.js example)
-    DynamicJsonDocument doc(256);
+    JsonDocument doc;
     doc["sn"] = String(DEVICE_SN);
     doc["client_secret_key"] = String(CLIENT_SECRET_KEY);
 
     // sensorIds: generated from base ID and sensor count (configurable via config.h)
-    const uint32_t baseSensorId = 0x0f1234;
-    JsonArray sensorIds = doc.createNestedArray("sensorIds");
+    JsonArray sensorIds = doc["sensorIds"].to<JsonArray>();
     for (size_t i = 0; i < SENSOR_COUNT; i++)
-        sensorIds.add((uint32_t)(baseSensorId + i));
+        sensorIds.add((uint32_t)(BASE_SENSOR_ID + i));
 
     String postPayload;
     serializeJson(doc, postPayload);
@@ -293,7 +248,7 @@ bool authenticateDevice()
         JsonDocument doc;
         DeserializationError error = deserializeJson(doc, payload);
 
-        if (!error && doc.containsKey("token"))
+        if (!error && doc["token"].is<const char *>())
         {
             authToken = doc["token"].as<String>();
             DEBUG_PRINTLN("[AUTH] Token received successfully");
@@ -351,14 +306,15 @@ void handleSocketIOPacket(const char *packet, size_t length)
 
         if (!error)
         {
-            if (doc.containsKey("sid"))
+            if (doc["sid"].is<const char *>())
             {
                 socketSid = doc["sid"].as<String>();
                 DEBUG_PRINTF("[SOCKET] SID: %s\n", socketSid.c_str());
             }
 
-            // Send connect acknowledgment
-            sendPacket("40");
+            // Send connect acknowledgment with auth payload (Socket.IO expects token here)
+            String connectPayload = String("{\"token\":\"") + authToken + "\"}";
+            sendPacket("40", connectPayload);
             socketConnected = true;
 
             // Send bootup status
@@ -369,7 +325,7 @@ void handleSocketIOPacket(const char *packet, size_t length)
             }
             else
             {
-                emitDevStatus("Reconnected");
+                // emitDevStatus("Reconnected");
             }
         }
     }
@@ -419,10 +375,10 @@ void handleSocketIOPacket(const char *packet, size_t length)
                         else if (eventName == "app-cmd" && arr.size() > 1)
                         {
                             JsonObject eventPayload = arr[1].as<JsonObject>();
-                            if (eventPayload.containsKey("operation"))
+                            if (eventPayload["operation"].is<JsonObject>())
                             {
                                 JsonObject operation = eventPayload["operation"].as<JsonObject>();
-                                if (operation.containsKey("customCmd"))
+                                if (operation["customCmd"].is<const char *>())
                                 {
                                     String customCmd = operation["customCmd"].as<String>();
                                     DEBUG_PRINTF("[SOCKET] Custom Command: %s\n", customCmd.c_str());
@@ -499,11 +455,8 @@ void emitDevStatus(const String &status)
     DEBUG_PRINTF("[STATUS] Emitted: %s\n", packet.c_str());
 }
 
-// (moved) LCD drawing helpers have been relocated to `src/lcd_app.cpp`.
-// Prototypes remain in `include/main.h` so callers in this file stay valid.
-
 // ==================================================
-// Scan GPIO Inputs
+// Scan GPIO Inputs or Simulate Changes
 // ==================================================
 bool scanGpioInputs()
 {
@@ -511,7 +464,13 @@ bool scanGpioInputs()
 
     for (int i = 0; i < SENSOR_COUNT; i++)
     {
+#ifdef USE_SIMULATED_GPIO_VALUES
+        // uint32_t randomValue = esp_random();
+        gpioInputs[i].state = esp_random() % 2 == 0 ? LOW : HIGH; // Randomly toggle state
+                                                                  // DEBUG_PRINTF("[randomValue] value: %d\n", randomValue);
+#else
         gpioInputs[i].state = digitalRead(gpioInputs[i].pin);
+#endif
         if (gpioInputs[i].state != gpioInputs[i].previousState)
         {
             DEBUG_PRINTF("[GPIO] Pin %d changed: %d -> %d\n",
@@ -519,8 +478,12 @@ bool scanGpioInputs()
                          gpioInputs[i].previousState,
                          gpioInputs[i].state);
             gpioInputs[i].previousState = gpioInputs[i].state;
-            // changed = true;
+            changed = true;
         }
     }
+    // return changed;
+#ifdef USE_SIMULATED_GPIO_VALUES
+    return false;
+#endif
     return changed;
 }
