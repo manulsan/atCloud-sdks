@@ -35,11 +35,12 @@
 
 ## 🏗️ 개발 장비 정의및 설정
 
-1. [atCloud365.com MFG](https://atcloud365.com/mfg) 가입
+1. [atCloud365.com MFG](https://atcloud365.com/mfg) 가입( 가입은 email 승인 절차가 있습니다.)
 2. 가입및 로그인 후, 우측 하단의 장치 추가 버턴을 클릭하여, 개발 장치의 속성을 정의한다.
+   샘플 이미지. (신규 가입자는 자신의 디바이스를 정의해야 합니다.)
    ![MFG 장비 등록 화면](assets/img/mfg-equipment.png)
 3. 장차 설정을 시리얼 번호를 생성한다.  
-4. 생성된 "시리얼 번호"를 개발 디바이스에 적용한다. ( .env 파일 혹은 config.h 참조)
+4. 생성된 "시리얼 번호"를 개발 디바이스에 적용한다. ( sdks 폴더의 .env 파일, config.h 참조)
 5. ![MFG 장비 등록 화면](assets/img/mfg-equipment-sn.png)
 
 ## 🏗️ 프로젝트 구조
