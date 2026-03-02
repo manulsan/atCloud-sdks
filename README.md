@@ -6,11 +6,19 @@
 
 이 저장소는 atCloud365.com IoT 플랫폼과 통신하는 다양한 프로그래밍 언어 및 플랫폼의 **실제 동작 가능한 예제 프로젝트**를 제공합니다. 각 프로젝트는 독립적으로 실행 가능하며, IoT 디바이스 개발 시 참조 코드로 활용할 수 있습니다.
 
+특히 이 SDK는 **제조 업체 개발자**가 atCloud365 플랫폼과 연동되는 IoT 디바이스를 개발할 때,
+연동 방식을 빠르게 이해하고 적용할 수 있도록 언어별 샘플을 제공합니다.
+
+즉, 제조사 개발팀이 "디바이스 정의 → Serial No(DEVICE_SN) 발급/관리 → 펌웨어 적용 → 출하 제품 등록"까지
+실무에 바로 적용할 수 있도록 구성된 참조 SDK 모음입니다.
+
 ---
 
 ## 📋 목차
 
 - [특징](#-특징)
+- [MFG 연동 개요](#-mfg-연동-개요)
+- [개발·출하 연동 흐름](#-개발출하-연동-흐름)
 - [프로젝트 구조](#-프로젝트-구조)
 - [시작하기](#-시작하기)
 - [통신 프로토콜](#-통신-프로토콜)
@@ -28,22 +36,37 @@
 - **다중 플랫폼**: ESP32(PlatformIO/Arduino IDE), Python, Node.js 지원
 - **완전한 예제**: 각 프로젝트는 즉시 실행 가능한 완전한 코드 제공
 - **보안**: HTTPS + Token 기반 인증 시스템
-- **타입별 구분**: Input Device(센서) / Output Device(액추에이터) 예제 분리
+- **타입별 구분**: Input Device(입력 디바이스, 센서) / Output Device(출력 디바이스, 액추에이터) 예제 분리
 - **오픈소스**: MIT 라이센스로 자유롭게 사용 및 수정 가능
 
 ---
 
-## 🏗️ 개발 장비 정의및 설정
+## 🏭 제조 업체에서 사용 방법
 
-1. [atCloud365.com MFG](https://atcloud365.com/mfg) 가입( 가입은 email 승인 절차가 있습니다.)
-2. 가입및 로그인 후, 우측 하단의 장치 추가 버턴을 클릭하여, 개발 장치의 속성을 정의한다.
-   샘플 이미지. (신규 가입자는 자신의 디바이스를 정의해야 합니다.)
-   ![MFG 장비 등록 화면](assets/img/mfg-equipment.png)
-3. 장차 설정을 시리얼 번호를 생성한다.  
-4. 생성된 "시리얼 번호"를 개발 디바이스에 적용한다. ( sdks 폴더의 .env 파일, config.h 참조)
-5. ![MFG 장비 등록 화면](assets/img/mfg-equipment-sn.png)
+업체는 [atCloud365.com/mfg](https://atcloud365.com/mfg)에서 개발 디바이스 속성 정의, 디바이스별 **Serial No (DEVICE_SN)** 및 **SECRET_KEY**를 생성/관리합니다.
 
-## 🏗️ 프로젝트 구조
+### 🔄 개발·출하 연동 흐름
+
+| 단계 | 주체 | 작업 내용 | 적용/결과 |
+|:--:|:---:|:---|---|
+| 1 | 개발업체 | MFG 가입/로그인 및 디바이스 속성 정의 | `atcloud365.com/mfg`에 디바이스 모델 등록 |
+| 2 | 개발업체 | 디바이스별 `Serial No (DEVICE_SN)` 및 `SECRET_KEY` 생성 | 디바이스 식별/인증 정보 확정 |
+| 3 | 펌웨어 개발자 | `DEVICE_SN`, `SECRET_KEY`로 디바이스 인증/통신 구현 | `DEVICE_SN`을 BLE 통신 ID에 적용 |
+| 4 | 제품 출하 | 동일 `DEVICE_SN` 기반으로 출하 라벨 구성 | QR code/패키지(BOX, PCB 등)에 반영 |
+| 5 | 구매자 | 플랫폼에서 제품 등록 | 앱/웹에서 QR 또는 BLE로 장치 등록 후 사용 |
+
+### 🔄 화면 예시
+
+![MFG 장비 등록 화면](assets/img/mfg-equipment.png)
+![MFG 시리얼 등록 화면](assets/img/mfg-equipment-sn.png)
+
+> 💡 **중요**: 각 하위 폴더는 독립적인 프로젝트이며, 개별 README.md를 포함합니다.
+
+---
+
+## 🚀 시작하기
+
+### 0. 프로젝트 구조
 
 ```
 sdks/
@@ -61,12 +84,6 @@ sdks/
 ├── LICENSE                     # MIT 라이센스
 └── README.md                   # 이 문서
 ```
-  
-> 💡 **중요**: 각 하위 폴더는 독립적인 프로젝트이며, 개별 README.md를 포함합니다.
-
----
-
-## 🚀 시작하기
 
 ### 1. 저장소 클론
 
@@ -74,6 +91,7 @@ sdks/
 git clone https://github.com/your-org/atcloud365-sdks.git
 cd atcloud365-sdks
 ```
+
 
 ### 2. 프로젝트 선택
 
@@ -84,10 +102,10 @@ cd atcloud365-sdks
 cd device-sdk/c/platformio/input-device
 
 # Python 예제
-cd device-sdk/python
+cd device-sdk/python/input-device
 
 # Node.js 예제
-cd device-sdk/nodejs
+cd device-sdk/nodejs/input-device
 ```
 
 ### 3. 설정 파일 생성
@@ -102,8 +120,6 @@ cp config.example.h config.h
 cp config.example.py config.py
 
 # Node.js 프로젝트
-cp config.example.js config.js
-# 또는
 cp .env.example .env
 ```
 
@@ -115,20 +131,22 @@ cp .env.example .env
 // config.h (C/C++)
 #define DEVICE_SN "YOUR_DEVICE_SN_HERE"
 #define CLIENT_SECRET_KEY "YOUR_SECRET_KEY_HERE"
+#define SERVER_URL "https://atcloud365.com"
+#define API_PATH "/api/dev/io/"
 ```
 
 ```python
 # config.py (Python)
 DEVICE_SN = "YOUR_DEVICE_SN_HERE"
 CLIENT_SECRET_KEY = "YOUR_SECRET_KEY_HERE"
+DEVICE_AUTH_URI = "https://atcloud365.com/api/v3/devices/auth"
 ```
 
-```javascript
-// config.js (Node.js)
-module.exports = {
-  DEVICE_SN: "YOUR_DEVICE_SN_HERE",
-  CLIENT_SECRET_KEY: "YOUR_SECRET_KEY_HERE"
-};
+```env
+# .env (Node.js)
+DEVICE_SN=YOUR_DEVICE_SN_HERE
+CLIENT_SECRET_KEY=YOUR_SECRET_KEY_HERE
+DEVICE_AUTH_URI=https://atcloud365.com/api/v3/devices/auth
 ```
 
 ### 5. 빌드 및 실행
@@ -146,68 +164,89 @@ module.exports = {
 
 ### 인증 플로우
 
-```
-1. Device Boot Up
-   ↓
-2. HTTPS GET (DEVICE_SN + CLIENT_SECRET_KEY)
-   → https://api.atcloud365.com/auth
-   ↓
-3. Server Response: { "token": "..." }
-   ↓
-4. Socket.IO 연결 (token as query parameter)
-   → wss://api.atcloud365.com?token=...
-   ↓
-5. 실시간 통신 시작
+```mermaid
+sequenceDiagram
+    participant D as Device
+    participant A as Auth Server
+    participant S as Socket Server
+
+    D->>D: Boot Up
+    D->>A: HTTPS POST https://atcloud365.com/api/v3/devices/auth\n(sn, client_secret_key)
+    A-->>D: 200 OK + token
+    D->>S: Socket.IO Connect\n(auth: token, query: sn)
+    S-->>D: Connected
+    D->>S: dev-status / dev-data 송신 시작
+    S-->>D: appcmd 수신 가능
 ```
 
 ### Socket.IO 이벤트
 
-#### 디바이스 → 플랫폼 (Emit)
+```mermaid
+flowchart LR
+    D["Device"] -->|"에밋: dev-data\n센서 데이터 전송"| P["atCloud365 Platform"]
+    D -->|"에밋: dev-status\n디바이스 상태 전송"| P
+    P -->|"온: appcmd\n제어 명령 수신"| D
+```
 
-| Event | 용도 | 데이터 예시 |
-|-------|------|------------|
-| `dev-data` | 센서 데이터 전송 | `{ content: [-4, 2] }` |
-| `dev-status` | 디바이스 상태 전송 | `{ status: "online" }` |
+#### 이벤트 요약
 
-#### 플랫폼 → 디바이스 (On)
-
-| Event | 용도 | 데이터 예시 |
-|-------|------|------------|
-| `appcmd` | 제어 명령 수신 | `{ command: "turn_on" }` |
+- 디바이스 → 플랫폼
+  - `dev-data`: 센서 데이터 전송 (`{ content: [-4, 2] }`)
+  - `dev-status`: 디바이스 상태 전송 (`{ status: "online" }`)
+- 플랫폼 → 디바이스
+  - `appcmd`: 제어 명령 수신 (`{ command: "turn_on" }`)
 
 ---
 
 ## 🔐 인증 방식
 
-### 필수 정보
+### 필수 정보 (공통)
 
-모든 디바이스는 다음 정보가 필요합니다:
+모든 디바이스는 다음 정보를 공통으로 사용합니다:
 
-1. **DEVICE_SN**: 디바이스 고유 시리얼 번호 (예: `03EB023C002601000000FF`)
-2. **CLIENT_SECRET_KEY**: bcrypt 해시된 비밀 키 (예: `$2b$10$MTQ9AXj...`)
-3. **SERVER_URL**: API 엔드포인트 (기본값: `https://api.atcloud365.com`)
-4. **TIMEOUT**: 통신 타임아웃 (기본값: `30`초)
+1. **DEVICE_SN**: 디바이스 고유 Serial No (예: `03EB023C002601000000FF`)
+2. **CLIENT_SECRET_KEY**: bcrypt 해시된 비밀 키 (예: `$2b$10$MTQ9AXj...`) / 장치별 보안 키 관리
+3. **SERVER_URL**: 플랫폼 엔드포인트 (기본값: `https://atcloud365.com`)
+
+### 필수 정보 (언어별)
+
+- **C/C++ (PlatformIO/Arduino)**
+  - **API_PATH**: Socket.IO path (기본값: `/api/dev/io/`)
+  - **HTTP_TIMEOUT / SOCKETIO_TIMEOUT**: 통신 타임아웃(ms)
+- **Python / Node.js**
+  - **DEVICE_AUTH_URI**: 디바이스 인증 URI (기본값: `https://atcloud365.com/api/v3/devices/auth`)
 
 ### 보안 주의사항
 
 ⚠️ **중요**: 
 - 실제 인증 정보는 절대 Git에 커밋하지 마세요
-- `config.h`, `config.py`, `config.js`, `.env` 파일은 `.gitignore`에 등록되어 있습니다
+- `config.h`, `config.py`, `.env` 파일은 `.gitignore`에 등록되어 있습니다
 - 프로덕션 환경에서는 환경 변수 사용을 권장합니다
 
 ---
 
 ## 🛠️ 설정 방법
 
-### 공통 설정 값
-
-모든 프로젝트에서 공통으로 사용되는 설정:
+### 공통 설정 값 (모든 언어)
 
 ```
-DEVICE_SN          : 디바이스 시리얼 번호 (atCloud365에서 발급)
+DEVICE_SN          : 디바이스 Serial No (atCloud365에서 발급)
 CLIENT_SECRET_KEY  : 인증 비밀 키 (atCloud365에서 발급)
-SERVER_URL         : https://api.atcloud365.com
-TIMEOUT            : 30
+SERVER_URL         : https://atcloud365.com
+```
+
+### 언어별 추가 설정 값
+
+```
+C/C++ (PlatformIO/Arduino)
+API_PATH           : /api/dev/io/
+HTTP_TIMEOUT       : 30000 (ms)
+SOCKETIO_TIMEOUT   : 60000 (ms)
+
+Python / Node.js
+DEVICE_AUTH_URI    : https://atcloud365.com/api/v3/devices/auth
+DATA_UPLOAD_INTERVAL : 예) 5~10 (s)
+STATUS_REPORT_INTERVAL: 예) 60 (s)
 ```
 
 ### 설정 파일 위치
@@ -216,7 +255,7 @@ TIMEOUT            : 30
 
 - **C/C++**: `config.h` (템플릿: `config.example.h`)
 - **Python**: `config.py` (템플릿: `config.example.py`)
-- **Node.js**: `config.js` 또는 `.env` (템플릿: `config.example.js` 또는 `.env.example`)
+- **Node.js**: `.env` (템플릿: `.env.example`)
 
 ---
 
@@ -245,7 +284,7 @@ TIMEOUT            : 30
 
 ## 📚 예제 프로젝트
 
-### Input Device (센서)
+### Input Device (입력 디바이스, 센서)
 
 센서 데이터를 수집하여 atCloud365 플랫폼으로 전송하는 예제:
 
@@ -257,7 +296,7 @@ TIMEOUT            : 30
 - `device-sdk/c/platformio/input-device/`
 - `device-sdk/c/arduino-idf/input-device/`
 
-### Output Device (액추에이터)
+### Output Device (출력 디바이스, 액추에이터)
 
 atCloud365 플랫폼에서 제어 명령을 수신하여 실행하는 예제:
 
@@ -284,7 +323,7 @@ atCloud365 플랫폼에서 제어 명령을 수신하여 실행하는 예제:
 
 ```
 문제: HTTPS 인증 실패 (401 Unauthorized)
-해결: DEVICE_SN 및 CLIENT_SECRET_KEY 확인
+해결: DEVICE_SN(Serial No) 및 CLIENT_SECRET_KEY 확인
 ```
 
 ### Socket.IO 연결 끊김
@@ -360,12 +399,12 @@ Copyright (c) 2026 atCloud365
 
 ## 🌟 Quick Start 예시
 
-### PlatformIO (ESP32 Input Device)
+### PlatformIO (ESP32 Input Device, 입력 디바이스)
 
 ```bash
 cd device-sdk/c/platformio/input-device
 cp config.example.h config.h
-# config.h에 인증 정보 입력
+# config.h에 DEVICE_SN, CLIENT_SECRET_KEY, SERVER_URL, API_PATH 입력
 pio run -t upload
 pio device monitor
 ```
@@ -373,9 +412,9 @@ pio device monitor
 ### Python
 
 ```bash
-cd device-sdk/python
+cd device-sdk/python/input-device
 cp config.example.py config.py
-# config.py에 인증 정보 입력
+# config.py에 DEVICE_SN, CLIENT_SECRET_KEY, DEVICE_AUTH_URI 입력
 pip install -r requirements.txt
 python main.py
 ```
@@ -383,9 +422,9 @@ python main.py
 ### Node.js
 
 ```bash
-cd device-sdk/nodejs
+cd device-sdk/nodejs/input-device
 cp .env.example .env
-# .env에 인증 정보 입력
+# .env에 DEVICE_SN, CLIENT_SECRET_KEY, DEVICE_AUTH_URI 입력
 npm install
 npm start
 ```
