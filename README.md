@@ -4,13 +4,7 @@
 
 **atCloud365 IoT 플랫폼과 통신하는 디바이스 SDK 참조 예제 모음**
 
-이 저장소는 **[atCloud365 IoT 플랫폼](https://atcloud365.com)** 통신하는 다양한 프로그래밍 언어 및 플랫폼의 **실제 동작 가능한 예제 프로젝트**를 제공합니다. 각 프로젝트는 독립적으로 실행 가능하며, IoT 디바이스 개발 시 참조 코드로 활용할 수 있습니다.
-
-특히 이 SDK는 **제조 업체 개발자**가 atCloud365 플랫폼과 연동되는 IoT 디바이스를 개발할 때,
-연동 방식을 빠르게 이해하고 적용할 수 있도록 언어별 샘플을 제공합니다.
-
-즉, 제조사 개발팀이 "디바이스 정의 → Serial No(DEVICE_SN) 발급/관리 → 펌웨어 적용 → 출하 제품 등록"까지
-실무에 바로 적용할 수 있도록 구성된 참조 SDK 모음입니다.
+**[atCloud365 IoT 플랫폼](https://atcloud365.com)** 과 통신하는 다양한 프로그래밍 언어 및 플랫폼의 **실제 동작 가능한 예제 프로젝트**를 제공, 각 프로젝트는 독립적으로 실행 가능하며, IoT 디바이스 개발 시 참조 코드로 활용합니다. **제조 업체 개발자**가 atCloud365 플랫폼과 연동되는 IoT 디바이스를 개발할 때,연동 방식을 빠르게 이해하고 적용할 수 있도록 언어별 샘플을 제공합니다.
 
 ---
 
@@ -41,7 +35,7 @@
 
 ---
 
-## 🏭 제조 업체에서 사용 방법
+## 🏭 MFG 연동 개요
 
 업체는 [atCloud365.com/mfg](https://atcloud365.com/mfg)에서 개발 디바이스 속성 정의, 디바이스별 **Serial No (DEVICE_SN)** 및 **SECRET_KEY**를 생성/관리합니다.
 
@@ -58,15 +52,10 @@
 ### 🔄 화면 예시
 
 ![MFG 장비 등록 화면](assets/img/mfg-equipment.png)
+![MFG 장비 등록 화면](assets/img/mfg-equipment-panel.png)
 ![MFG 시리얼 등록 화면](assets/img/mfg-equipment-sn.png)
 
-> 💡 **중요**: 각 하위 폴더는 독립적인 프로젝트이며, 개별 README.md를 포함합니다.
-
----
-
-## 🚀 시작하기
-
-### 0. 프로젝트 구조
+## 🏗️ 프로젝트 구조
 
 ```
 sdks/
@@ -85,13 +74,18 @@ sdks/
 └── README.md                   # 이 문서
 ```
 
+> 💡 **중요**: 각 하위 폴더는 독립적인 프로젝트이며, 개별 README.md를 포함합니다.
+
+---
+
+## 🚀 시작하기
+
 ### 1. 저장소 클론
 
 ```bash
 git clone https://github.com/your-org/atcloud365-sdks.git
 cd atcloud365-sdks
 ```
-
 
 ### 2. 프로젝트 선택
 
@@ -130,7 +124,7 @@ cp .env.example .env
 ```cpp
 // config.h (C/C++)
 #define DEVICE_SN "YOUR_DEVICE_SN_HERE"
-#define CLIENT_SECRET_KEY "YOUR_SECRET_KEY_HERE"
+#define CLIENT_SECRET_KEY "EQUIPMENT_SECRET_KEY_HERE"
 #define SERVER_URL "https://atcloud365.com"
 #define API_PATH "/api/dev/io/"
 ```
@@ -138,14 +132,14 @@ cp .env.example .env
 ```python
 # config.py (Python)
 DEVICE_SN = "YOUR_DEVICE_SN_HERE"
-CLIENT_SECRET_KEY = "YOUR_SECRET_KEY_HERE"
+CLIENT_SECRET_KEY = "EQUIPMENT_SECRET_KEY_HERE"
 DEVICE_AUTH_URI = "https://atcloud365.com/api/v3/devices/auth"
 ```
 
 ```env
 # .env (Node.js)
 DEVICE_SN=YOUR_DEVICE_SN_HERE
-CLIENT_SECRET_KEY=YOUR_SECRET_KEY_HERE
+CLIENT_SECRET_KEY=EQUIPMENT_SECRET_KEY_HERE
 DEVICE_AUTH_URI=https://atcloud365.com/api/v3/devices/auth
 ```
 
@@ -183,9 +177,9 @@ sequenceDiagram
 
 ```mermaid
 flowchart LR
-    D["Device"] -->|"에밋: dev-data\n센서 데이터 전송"| P["atCloud365 Platform"]
-    D -->|"에밋: dev-status\n디바이스 상태 전송"| P
-    P -->|"온: appcmd\n제어 명령 수신"| D
+  D["Device"] -->|"Emit: dev-data\n센서 데이터 전송"| P["atCloud365 Platform"]
+  D -->|"Emit: dev-status\n디바이스 상태 전송"| P
+  P -->|"On: appcmd\n제어 명령 수신"| D
 ```
 
 #### 이벤트 요약
